@@ -1,3 +1,5 @@
+# -*- coding: utf-8 -*-
+
 import pandas as pd
 
 
@@ -8,7 +10,7 @@ def consistency_check(data, print_every_n=10000):
     uids_seen = {}
     to_drop = []
     l = len(data)
-    for i, dup in data.loc[:, no_changers].duplicated().items():
+    for i, dup in enumerate(data.loc[:, no_changers].duplicated()):
         if not dup:
             uid = data.iloc[i].id
             if uid in uids_seen:
@@ -24,7 +26,7 @@ def consistency_check(data, print_every_n=10000):
     return data
 
 # Column indexes to be able to use masks.
-data = pd.read_csv('extract_open.csv', encoding='cp1252', sep=',', low_memory=False)
+data = pd.read_csv('extract_open.csv', encoding='cp1252', sep=',', low_memory=False, escapechar = '\\')
 credit = ['id_credit', 'type_credit', 'val_credit', 'mensualite', 'nb_mensualite', 'solde']
 budget = ["id_budget","typ","revenus","allocations","pensions_alim","revenus_FL","autre1","autre2","autre3",
           "loyer","charges_loc_cop","gdf","electicite","eau","tel_fixe","tel_port","impots","taxe_fonciere",
