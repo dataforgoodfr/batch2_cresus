@@ -13,7 +13,7 @@ CREATE TABLE extract
 		nature,
 		/*debutpret, finpret, datetime	,montantpret,media*/
 		orientation,
-		personnes_charges,
+		personne_charges,
 		vip,
 		indicateur_suivi,
 		releve_bancaire,	
