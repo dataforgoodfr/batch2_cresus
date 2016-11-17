@@ -49,7 +49,7 @@ CREATE TABLE credits_extended
 			THEN sum_solde END AS sum_solde_4,
 		CASE WHEN type_credit = 5
 			THEN sum_solde END AS sum_solde_5
-	FROM credits_bytype
+	FROM credits_bytype;
 
 # Aggrège par id_dossier
 CREATE TABLE credits_grouped
@@ -73,7 +73,7 @@ CREATE TABLE credits_grouped
 			SUM(sum_solde_4) AS sum_solde_4,
 			SUM(sum_solde_5) AS sum_solde_5
 	FROM credits_extended
-	GROUP BY id_dossier
+	GROUP BY id_dossier;
 									
 
 -- # Vérification de la diminution de lignes
