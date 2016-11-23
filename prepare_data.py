@@ -2,6 +2,7 @@
 
 import pandas as pd
 import numpy as np
+from pprint import pprint
 from sklearn.preprocessing import LabelEncoder
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.cross_validation import train_test_split
@@ -13,6 +14,7 @@ def transform_data(data):
         data.loc[:, col] = np.sum(data[credit_detail[i]], axis=1)
     data = data[(data.sum_mensualite > 0) & (data.sum_mensualite < 8000)]
     data = data[data.orientation > 1]
+    data=data[data.revenus.notnull()] # Elimine ceux pour lesquels on a pas de budget
     le = LabelEncoder()
     for col, dtype in zip(data.columns, data.dtypes):
         if dtype == 'object':
@@ -39,10 +41,14 @@ budget = ['typ', 'revenus', 'allocations',
           'abonnement_autre', 'autre_charge', 'taxe_ordure', 'autre_impots',
           'assurance_gav', 'assurance_prevoyance', 'assurance_scolaire',
           'pensions_alim_payee', 'internat', 'frais_garde', 'cantine',
-          'alim_hyg_hab', 'dat_budget']
+          'alim_hyg_hab', 
+          #'dat_budget'
+          ]
 
 autres_infos = ['id', 'profession', 'logement', 'situation', 'transferable',
-                'retard_facture', 'retard_pret', 'nature', 'orientation',
+                'retard_facture', 'retard_pret',
+                 #'nature', 
+                 'orientation',
                 'personne_charges', 'releve_bancaire']
 
 to_keep = autres_infos + credit_flat + budget
@@ -56,11 +62,16 @@ data.fillna(0, inplace=True) #TODO: Find which are actually NA.
 
 mask = ~data.columns.isin(['orientation', 'id'])
 Xtrain, Xtest, ytrain, ytest = train_test_split(data.loc[:, mask], data.orientation)
-rfc = RandomForestClassifier()
+rfc = RandomForestClassifier(random_state = 0)
 rfc.fit(Xtrain, ytrain)
 ypred = rfc.predict(Xtest)
+print('Number of observations kept: {}'.format(len(data)))
 print('Accuracy is {}'.format(np.mean(ypred == ytest)))
 
-print('Showing feature importances:')
+feat_imp = dict()
 for i, j in zip(Xtrain.columns, rfc.feature_importances_*100):
-    print(i, j)
+    feat_imp[i]=j
+feat_imp = sorted(feat_imp.items(), key = lambda x : x[1], reverse = True)
+print('Showing feature importances:')
+pprint(feat_imp)
+
