@@ -1,0 +1,1 @@
+mysql -hlocalhost -u<user> -p -e 'select * from cresus.extract' > out.csv
