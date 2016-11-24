@@ -22,4 +22,4 @@ Les données étant personnelles et confidentielles, veuillez entre en contact a
 ### Extraction des données
 
 1. Exécuter dans MySQL le script de nettoyage des tables
-2. Placer le terminal sur le dossier git et exécuter la ligne de code contenue dans `generate_extract.csv` en remplaçant `localhost` par le host si besoin, et `<user>` par l'utilisateur de la base - le mot de passe demandé est celui de la base
+2. Placer le terminal sur le dossier git et exécuter la ligne de code contenue dans `generate_extract.txt` en remplaçant `localhost` par le host si besoin, et `<user>` par l'utilisateur de la base - le mot de passe demandé est celui de la base
