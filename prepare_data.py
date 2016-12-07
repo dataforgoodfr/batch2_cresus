@@ -39,11 +39,12 @@ budget = ['typ', 'revenus', 'allocations',
           #,'dat_budget'
           ]
 
-autres_infos = ['id','age', 'profession', 'logement', 'situation', 'transferable',
+autres_infos = ['id','age', 'profession', 'logement', 'situation', #'transferable',
                 'retard_facture', 'retard_pret',
                  #'nature', 
                  'orientation',
-                'personne_charges', 'releve_bancaire']
+                'personne_charges', #'releve_bancaire'
+                ]
 
 new_cols = ('sum_mensualite',
             #'moy_nb_mensualite', 
@@ -51,9 +52,9 @@ new_cols = ('sum_mensualite',
 credit_detail = []
 for text in new_cols:
     credit_detail.append(["{}_{}".format(text, i) for i in range(6)])
-credit_flat = [item for sublist in credit_detail for item in sublist]
-
-to_keep = autres_infos + credit_flat + list(new_cols) + budget
+credit_flat = [item for sublist in credit_detail for item in sublist] 
+credit_flat += list(new_cols)
+to_keep = autres_infos + credit_flat + budget
 
 
 # ----- Local functions -----
@@ -116,7 +117,15 @@ def transform_data(data):
     return data
 
 def fill_na(data):
-  ''' Fill NA with median of the column'''
+  ''' Fill NA with median of the column
+    To be improved
+  '''
+  # Columns where NAs are filled with zeros
+  fill_with_zeros = credit_flat
+  for col in fill_with_zeros:
+    data[col].fillna(value = 0,
+                    inplace = True)  
+  # Columns where NAs are filled by the median
   for col in data:
     data[col].fillna(value = data[col].median(),
                     inplace = True)
