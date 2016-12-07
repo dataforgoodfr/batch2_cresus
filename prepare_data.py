@@ -106,7 +106,7 @@ def transform_data(data):
     ''' Filter columns'''
     data = data.loc[:,to_keep]
     data = data[(data.sum_mensualite > 0) & (data.sum_mensualite < 8000)]
-    data = data[data.orientation > 1]
+    data = data[(data.orientation > 1)&(data.orientation < 5)]
     data.personne_charges = data.personne_charges.apply(abs)
     data=data[data.revenus.notnull()] # Elimine ceux pour lesquels on a pas de budget
     le = LabelEncoder()
