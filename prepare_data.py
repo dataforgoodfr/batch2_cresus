@@ -24,8 +24,8 @@ budget = ['typ', 'revenus', 'allocations',
           'abonnement_autre', 'autre_charge', 'taxe_ordure', 'autre_impots',
           'assurance_gav', 'assurance_prevoyance', 'assurance_scolaire',
           'pensions_alim_payee', 'internat', 'frais_garde', 'cantine',
-          'alim_hyg_hab', 
-          #'dat_budget'
+          'alim_hyg_hab'
+          #,'dat_budget'
           ]
 
 autres_infos = ['id', 'profession', 'logement', 'situation', 'transferable',
@@ -87,7 +87,7 @@ def aggreg_features(data):
   return data
 
 def transform_data(data):
-    # Filter columns
+    ''' Filter columns'''
     data = data.loc[:,to_keep]
     data = data[(data.sum_mensualite > 0) & (data.sum_mensualite < 8000)]
     data = data[data.orientation > 1]
@@ -100,14 +100,21 @@ def transform_data(data):
             data[col] = le.fit_transform(data[col])
     return data
 
+def fill_na(data):
+  ''' Fill NA with median of the column'''
+  for col in data:
+    data[col].fillna(value = data[col].median(),
+                    inplace = True)
+
+
 ## ----- Main ------
 # ------------------
 
 data = aggreg_features(data)
 data = recup_orientation_old(data)
 data = transform_data(data)
+fill_na(data)
 # This needs to be improved, it's just a MVP to showcase that we can already start applying algorithms.
-data.fillna(0, inplace=True) #TODO: Find which are actually NA.
 
 mask = ~data.columns.isin(['orientation', 'id'])
 Xtrain, Xtest, ytrain, ytest = train_test_split(data.loc[:, mask], data.orientation)
