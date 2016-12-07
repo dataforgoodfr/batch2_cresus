@@ -8,8 +8,19 @@ from sklearn.ensemble import RandomForestClassifier
 from sklearn.cross_validation import train_test_split
 
 # --- Data import ---
-data = pd.read_csv('out.csv', sep='\t')
 
+# Import sql extract 'out.csv' as left for future join with age data
+left = pd.read_csv('out.csv', sep='\t')
+
+#Import birth and file opening years, and computing difference to get age
+naissance = pd.read_csv('annee_naissance.csv',sep=';')
+naissance.columns = ['id', 'annee_naissance']
+ouverture = pd.read_csv('annee_ouverture.csv',sep=';')
+right = pd.merge(ouverture, naissance, on='id')
+right['age'] = right['annee_ouverture']-right['annee_naissance']
+
+# left joining age to the extract
+data = pd.merge(left, right.loc[:,['id', 'age']], on='id')
 
 # Masks:
 
@@ -28,7 +39,7 @@ budget = ['typ', 'revenus', 'allocations',
           #,'dat_budget'
           ]
 
-autres_infos = ['id', 'profession', 'logement', 'situation', 'transferable',
+autres_infos = ['id','age', 'profession', 'logement', 'situation', 'transferable',
                 'retard_facture', 'retard_pret',
                  #'nature', 
                  'orientation',
@@ -44,10 +55,14 @@ credit_flat = [item for sublist in credit_detail for item in sublist]
 
 to_keep = autres_infos + credit_flat + list(new_cols) + budget
 
+
 # ----- Local functions -----
 # ---------------------------
 
-
+def age_control(data):
+  #Supprime les ages inférieurs à 18 ans et supérieurs à 90
+  data = data[(data.age>=18) & (data.age<=90)]
+  return data
 
 def recup_orientation_old(data):
   d = {'surendettement' : 4 ,
@@ -110,6 +125,7 @@ def fill_na(data):
 ## ----- Main ------
 # ------------------
 
+data = age_control(data)
 data = aggreg_features(data)
 data = recup_orientation_old(data)
 data = transform_data(data)
