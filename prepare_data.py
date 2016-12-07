@@ -7,7 +7,7 @@ from sklearn.preprocessing import LabelEncoder
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.cross_validation import train_test_split
 
-# --- Data import ---
+# --------- Data import ---------
 
 # Import sql extract 'out.csv' as left for future join with age data
 left = pd.read_csv('out.csv', sep='\t')
@@ -22,9 +22,14 @@ right['age'] = right['annee_ouverture']-right['annee_naissance']
 # left joining age to the extract
 data = pd.merge(left, right.loc[:,['id', 'age']], on='id')
 
+
+# ------- Local functions -------
+# -------------------------------
+
 # Masks:
 
-budget = ['typ', 'revenus', 'allocations',
+budget = [#'typ', 
+          'revenus', 'allocations',
           'pensions_alim', 'revenus_FL', 'autre1', 'autre2', 'autre3', 'loyer',
           'charges_loc_cop', 'gdf', 'electicite', 'eau', 'tel_fixe', 'tel_port',
           'impots', 'taxe_fonciere', 'taxe_habitation', 'assurance_habitat',
@@ -34,18 +39,15 @@ budget = ['typ', 'revenus', 'allocations',
           'epargne', 'autres_charges', 'fioul_bois', 'internet', 'abonnement_tv',
           'abonnement_autre', 'autre_charge', 'taxe_ordure', 'autre_impots',
           'assurance_gav', 'assurance_prevoyance', 'assurance_scolaire',
-          'pensions_alim_payee', 'internat', 'frais_garde', 'cantine',
-          'alim_hyg_hab'
+          'pensions_alim_payee', 'internat', 'frais_garde', 'cantine','alim_hyg_hab'
           #,'dat_budget'
           ]
-
 autres_infos = ['id','age', 'profession', 'logement', 'situation', #'transferable',
                 'retard_facture', 'retard_pret',
                  #'nature', 
                  'orientation',
-                'personne_charges', #'releve_bancaire'
+                'personne_charges'#, 'releve_bancaire'
                 ]
-
 new_cols = ('sum_mensualite',
             #'moy_nb_mensualite', 
             'sum_solde')
@@ -54,11 +56,34 @@ for text in new_cols:
     credit_detail.append(["{}_{}".format(text, i) for i in range(6)])
 credit_flat = [item for sublist in credit_detail for item in sublist] 
 credit_flat += list(new_cols)
-to_keep = autres_infos + credit_flat + budget
+
+# Aggrège les différents types de crédits
+for i, col in enumerate(new_cols):
+    data.loc[:, col] = np.sum(data[credit_detail[i]], axis=1)
+
+# Aggrège les différentes catégories du budget
+data['revenus_tot'] = data.loc[:, ('revenus',
+                                    'allocations',
+                                    'pensions_alim',
+                                    'revenus_FL',
+                                    'autre1',
+                                    'autre2',
+                                    'autre3'
+                                    )].sum(1)
+
+# Aggrège les différents types de charges
+which = ['loyer','charges_loc_cop','gdf','electicite','eau','tel_fixe','tel_port','impots','taxe_fonciere',
+  'taxe_habitation','assurance_habitat','assurance_voiture','mutuelle','autre_assurance',
+  'epargne_enfant','frais_scolarite','transport_enfant','autres_charges_enfant','frais_bancaire',
+  'soins_recurrent','frais_justice','frais_transport','epargne','autres_charges','fioul_bois',
+ 'internet','abonnement_tv','abonnement_autre','autre_charge','taxe_ordure','autre_impots',
+  'assurance_gav','assurance_prevoyance','assurance_scolaire','pensions_alim_payee',
+  'internat','frais_garde','cantine']
+data['charges'] = data.loc[:, which].sum(1, skipna = True)
+
+to_keep = autres_infos + credit_flat + budget + ['charges', 'revenus_tot']
 
 
-# ----- Local functions -----
-# ---------------------------
 
 def age_control(data):
   #Supprime les ages inférieurs à 18 ans et supérieurs à 90
@@ -78,31 +103,8 @@ def recup_orientation_old(data):
                                                           & (data.orientation<=1), 'orientation_old']
   return data
 
-def aggreg_features(data):
-  # Aggrège les différents types de crédits
-  for i, col in enumerate(new_cols):
-      data.loc[:, col] = np.sum(data[credit_detail[i]], axis=1)
-  # Aggrège les différentes catégories du budget
-  data.revenus_tot = data.loc[:, ('revenus',
-                                      'allocations',
-                                      'pensions_alim',
-                                      'revenus_FL',
-                                      'autre1',
-                                      'autre2',
-                                      'autre3'
-                                      )].apply(sum,1)
-  # Aggrège les différents types de charges
-  charges = ['loyer','charges_loc_cop','gdf','electicite','eau','tel_fixe','tel_port','impots','taxe_fonciere',
-    'taxe_habitation','assurance_habitat','assurance_voiture','mutuelle','autre_assurance',
-    'epargne_enfant','frais_scolarite','transport_enfant','autres_charges_enfant','frais_bancaire',
-    'soins_recurrent','frais_justice','frais_transport','epargne','autres_charges','fioul_bois',
-   'internet','abonnement_tv','abonnement_autre','autre_charge','taxe_ordure','autre_impots',
-    'assurance_gav','assurance_prevoyance','assurance_scolaire','pensions_alim_payee',
-    'internat','frais_garde','cantine']
-  data.charges = data.loc[:, charges].apply(sum,1)
-  return data
 
-def transform_data(data):
+def transform_data(data, to_keep):
     ''' Filter columns'''
     data = data.loc[:,to_keep]
     data = data[(data.sum_mensualite > 0) & (data.sum_mensualite < 8000)]
@@ -135,9 +137,8 @@ def fill_na(data):
 # ------------------
 
 data = age_control(data)
-data = aggreg_features(data)
 data = recup_orientation_old(data)
-data = transform_data(data)
+data = transform_data(data, to_keep)
 fill_na(data)
 # This needs to be improved, it's just a MVP to showcase that we can already start applying algorithms.
 
