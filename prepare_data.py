@@ -105,29 +105,46 @@ def recup_orientation_old(data):
 
 
 def transform_data(data, to_keep):
-    ''' Filter columns'''
+    ''' Filter & transform categorial variables'''
+    # Filter columns
     data = data.loc[:,to_keep]
-    data = data[(data.sum_mensualite > 0) & (data.sum_mensualite < 8000)]
+    # Filter observations
     data = data[(data.orientation > 1)&(data.orientation < 5)]
+    data = data[(data.sum_mensualite > 0) & (data.sum_mensualite < 8000)]
+    data = data.loc[data.charges>0,:]
     data.personne_charges = data.personne_charges.apply(abs)
     data=data[data.revenus.notnull()] # Elimine ceux pour lesquels on a pas de budget
+    # Encode categorical variables
     le = LabelEncoder()
+    mapping = dict()
     for col, dtype in zip(data.columns, data.dtypes):
         if dtype == 'object':
             data[col] = data[col].apply(lambda s: str(s))
+            # Replace 0 and NaNs with unique label : 'None'
+            data[col] = data[col].where(~data[col].isin(['0','nan']), 'None')
             data[col] = le.fit_transform(data[col])
-    return data
+            mapping[col]= dict(zip(le.inverse_transform(data[col].unique()), data[col].unique()))
+    return [data,mapping]
 
-def fill_na(data):
+def fill_na(data,mapping):
   ''' Fill NA with median of the column
     To be improved
   '''
-  # Columns where NAs are filled with zeros
+  # Variables catégorielles
+  for col in mapping:
+    if 'None' in mapping[col]:
+      data[col] = data[col].where(
+                      data[col].isin([mapping[col]['None']]),
+                      # Valeur de remplacement des None : -- à améliorer --
+                      data[col].value_counts().idxmax()
+                      )
+
+  # Les None dans les colonnes du crédit correspondent à des 0 (absence de crédit)
   fill_with_zeros = credit_flat
   for col in fill_with_zeros:
     data[col].fillna(value = 0,
                     inplace = True)  
-  # Columns where NAs are filled by the median
+  # Columns where NAs are filled by the median -- à améliorer -- mais bon ça concerne quasi personne --
   for col in data:
     data[col].fillna(value = data[col].median(),
                     inplace = True)
@@ -138,8 +155,8 @@ def fill_na(data):
 
 data = age_control(data)
 data = recup_orientation_old(data)
-data = transform_data(data, to_keep)
-fill_na(data)
+[data,mapping] = transform_data(data, to_keep)
+fill_na(data,mapping)
 # This needs to be improved, it's just a MVP to showcase that we can already start applying algorithms.
 
 mask = ~data.columns.isin(['orientation', 'id'])
@@ -155,5 +172,5 @@ for i, j in zip(Xtrain.columns, rfc.feature_importances_*100):
     feat_imp[i]=j
 feat_imp = sorted(feat_imp.items(), key = lambda x : x[1], reverse = True)
 print('Showing feature importances:')
-pprint(feat_imp)
-
+for (i,j) in feat_imp:
+  print('{:>25} | {:3.2f}'.format(i,j))
