@@ -9,21 +9,26 @@ from sklearn.preprocessing import LabelEncoder
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.cross_validation import train_test_split
 
-# --------- Data import ---------
+import xgboost as xgb
 
-# Import sql extract 'out.csv' as left for future join with age data
-left = pd.read_csv('out.csv', sep='\t')
+def import_data():
+  """ 
+    Import the dataset from SQL extract, joins additional data
+  """
 
-#Import birth and file opening years, and computing difference to get age
-naissance = pd.read_csv('annee_naissance.csv',sep=';')
-naissance.columns = ['id', 'annee_naissance']
-ouverture = pd.read_csv('annee_ouverture.csv',sep=';')
-right = pd.merge(ouverture, naissance, on='id')
-right['age'] = right['annee_ouverture']-right['annee_naissance']
+  # Import sql extract 'out.csv' as left for future join with age data
+  left = pd.read_csv('out.csv', sep='\t')
 
-# left joining age to the extract
-data = pd.merge(left, right.loc[:,['id', 'age']], on='id')
+  #Import birth and file opening years, and computing difference to get age
+  naissance = pd.read_csv('annee_naissance.csv',sep=';')
+  naissance.columns = ['id', 'annee_naissance']
+  ouverture = pd.read_csv('annee_ouverture.csv',sep=';')
+  right = pd.merge(ouverture, naissance, on='id')
+  right['age'] = right['annee_ouverture']-right['annee_naissance']
 
+  # left joining age to the extract
+  data = pd.merge(left, right.loc[:,['id', 'age']], on='id')
+  return data
 
 # ------- Local functions -------
 # -------------------------------
@@ -85,7 +90,7 @@ def clean_budget(data, mapping):
     data[col]   = data[col].where(~regle, None)
     if data[col].isnull().sum()>0:
         knn = neighbors.KNeighborsRegressor(n_neighbors)
-        data_temp = data.loc[(data.logement==2) & (~data[col].isnull()), :]
+        data_temp = data.loc[(data.logement== locataire) & (~data[col].isnull()), :]
         mask = ~data.columns.isin([col, 'id'])
         X = data_temp.loc[:, mask]
         null_index = data[col].isnull()
@@ -93,7 +98,7 @@ def clean_budget(data, mapping):
         data.loc[null_index,col] = y_
   return data
 
-def aggreg(data, to_keep, credit_detail) : 
+def aggreg(data, to_keep, credit_detail, new_cols) : 
   # Aggrège les différents types de crédits
   for i, col in enumerate(new_cols):
       data.loc[:, col] = np.sum(data[credit_detail[i]], axis=1)
@@ -150,8 +155,20 @@ def filter_data(data):
     data=data[data.revenus.notnull()] # Elimine ceux pour lesquels on a pas de budget
     return data
 
+def prepare_all():
+  ''' Ici on fait tout'''
+  data = import_data()
+  [budget, autres_infos, new_cols, credit_detail, credit_flat, to_keep] = create_masks(data)
+  [data, mapping] = encode_categ(data)
+  data = age_control(data)
+  [data, to_keep] = aggreg(data, to_keep, credit_detail, new_cols)
+  data = filter_data(data)
+  data = fill_na(data,mapping, credit_flat)
+  data = clean_budget(data, mapping)
+  data = recup_orientation_old(data)
+  return data
 
-def fill_na(data,mapping):
+def fill_na(data,mapping, credit_flat):
   ''' Fill NA with median of the column
     To be improved
   '''
@@ -178,34 +195,9 @@ def fill_na(data,mapping):
   return data
 
 
-## ----- Main ------
-# ------------------
-# Masks
-[budget, autres_infos, new_cols, credit_detail, credit_flat, to_keep] = create_masks(data)
-[data, mapping] = encode_categ(data)
-data = age_control(data)
-[data, to_keep] = aggreg(data, to_keep, credit_detail)
-data = filter_data(data)
-data = fill_na(data,mapping)
-data = clean_budget(data, mapping)
-data = recup_orientation_old(data)
 
-# Filtering columns & obs
-# This needs to be improved, it's just a MVP to showcase that we can already start applying algorithms.
 
-data = data.loc[:,to_keep]
-mask = ~data.columns.isin(['orientation', 'id'])
-Xtrain, Xtest, ytrain, ytest = train_test_split(data.loc[:, mask], data.orientation, random_state = 10)
-rfc = RandomForestClassifier(random_state = 10)
-rfc.fit(Xtrain, ytrain)
-ypred = rfc.predict(Xtest)
-print('Number of observations kept: {}'.format(len(data)))
-print('Accuracy is {}'.format(np.mean(ypred == ytest)))
 
-feat_imp = dict()
-for i, j in zip(Xtrain.columns, rfc.feature_importances_*100):
-    feat_imp[i]=j
-feat_imp = sorted(feat_imp.items(), key = lambda x : x[1], reverse = True)
-print('Showing feature importances:')
-for (i,j) in feat_imp:
-  print('{:>25} | {:3.2f}'.format(i,j))
+
+
+

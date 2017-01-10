@@ -1,4 +1,8 @@
 .ipynb_checkpoints/
 *.csv
 .DS_Store
+<<<<<<< Updated upstream
 algos.ipynb
+=======
+xgboost
+>>>>>>> Stashed changes
