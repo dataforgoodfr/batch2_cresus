@@ -13,16 +13,14 @@ import xgboost as xgb
 
 import prepare_data
 
-print(dir(prepare_data))
+data = prepare_data.prepare_all()
 
-data = prepare_data._main()
-
-# Filtering columns & obs
-# This needs to be improved, it's just a MVP to showcase that we can already start applying algorithms.
-
-data = data.loc[:,to_keep]
+# Split to training and test set
 mask = ~data.columns.isin(['orientation', 'id'])
 Xtrain, Xtest, ytrain, ytest = train_test_split(data.loc[:, mask], data.orientation, random_state = 10)
+
+# ---- Random Forest ----
+# -----------------------
 rfc = RandomForestClassifier(random_state = 10, n_estimators = 100)
 rfc.fit(Xtrain, ytrain)
 ypred = rfc.predict(Xtest)
@@ -39,9 +37,9 @@ for (i,j) in feat_imp:
 
 # ------ XGBOOST ------
 #----------------------
+if (False):
+	model = xgboost.XGBClassifier()
+	model.fit(X_train, y_train)
 
-model = xgboost.XGBClassifier()
-model.fit(X_train, y_train)
-
-y_pred = model.predict(y_test)
-print('XGBoost accuracy is {}'.format(np.mean(ypred == ytest)))
+	y_pred = model.predict(y_test)
+	print('XGBoost accuracy is {}'.format(np.mean(ypred == ytest)))

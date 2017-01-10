@@ -155,18 +155,6 @@ def filter_data(data):
     data=data[data.revenus.notnull()] # Elimine ceux pour lesquels on a pas de budget
     return data
 
-def prepare_all():
-  ''' Ici on fait tout'''
-  data = import_data()
-  [budget, autres_infos, new_cols, credit_detail, credit_flat, to_keep] = create_masks(data)
-  [data, mapping] = encode_categ(data)
-  data = age_control(data)
-  [data, to_keep] = aggreg(data, to_keep, credit_detail, new_cols)
-  data = filter_data(data)
-  data = fill_na(data,mapping, credit_flat)
-  data = clean_budget(data, mapping)
-  data = recup_orientation_old(data)
-  return data
 
 def fill_na(data,mapping, credit_flat):
   ''' Fill NA with median of the column
@@ -193,6 +181,24 @@ def fill_na(data,mapping, credit_flat):
     data[col].fillna(value = 0 if (not(med) or np.isnan(med))  else med,
                     inplace = True)
   return data
+
+
+def prepare_all():
+  ''' Ici on fait tout'''
+  data = import_data()
+  [budget, autres_infos, new_cols, credit_detail, credit_flat, to_keep] = create_masks(data)
+  [data, mapping] = encode_categ(data)
+  data = age_control(data)
+  [data, to_keep] = aggreg(data, to_keep, credit_detail, new_cols)
+  data = filter_data(data)
+  data = fill_na(data,mapping, credit_flat)
+  data = clean_budget(data, mapping)
+  data = recup_orientation_old(data)
+  data = data.loc[:,to_keep]
+  return data
+
+
+
 
 
 
