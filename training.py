@@ -51,9 +51,20 @@ def create_masks(data) :
     return [budget, autres_infos, new_cols, credit_detail, to_keep]
 
 def create_features(data, to_keep, credit_detail) : 
+    '''
+        1. Aggrège les mensualités et soldes
+        2. Aggrège les revenus et les charges
+        3. Récupère les informations contenues dans 'orientation_old' si besoin
+    '''
     # Aggrège les différents types de crédits
     for i, col in enumerate(['sum_mensualite', 'sum_solde']):
         data.loc[:, col] = np.sum(data[credit_detail[i]], axis=1)
+
+    # Les None dans les colonnes du crédit correspondent à des 0 (absence de crédit)
+    fill_with_zeros = [item for sublist in credit_detail for item in sublist]
+    for col in fill_with_zeros:
+        data[col].fillna(value = 0,
+                    inplace = True) 
 
     # Aggrège les différentes catégories du budget
     data['revenus_tot'] = data.loc[:, ('revenus',
@@ -76,22 +87,25 @@ def create_features(data, to_keep, credit_detail) :
     data['charges'] = data.loc[:, which].sum(1, skipna = True)
 
     to_keep = to_keep + ['charges', 'revenus_tot']
-    return [data, to_keep]
 
-
-def recup_orientation_old(data):
-    d = {'surendettement' : 4 ,
-        'accompagnement' : 2,
-        'mediation' : 3,
-        'microcredit' : 5,
-        'Microcredit' : 5}
+    # Récupère les orientations contenues dans 'orientation_old' si (orientation in [0,1])
+    d = {'surendettement'   : 4 ,
+        'accompagnement'    : 2,
+        'mediation'         : 3,
+        'microcredit'       : 5,
+        'Microcredit'       : 5}
     data.orientation_old = data.orientation_old.apply(lambda x : d.get(x,0))
 
     data.ix[(data.orientation_old > 1) 
           & (data.orientation<=1), 'orientation'] =  data.ix[(data.orientation_old > 1) 
-                                                          & (data.orientation<=1), 'orientation_old']
-    return data
+                                                          & (data.orientation<=1), 'orientation_old']    
 
+    return [data, to_keep]
+
+
+def recup_orientation_old(data):
+
+    return data
 
 def filter_data(data):
     ''' Filter observations'''
@@ -107,36 +121,6 @@ def filter_data(data):
         print('{:>15} | {:3.0f}'.format(e,data[data.plateforme==e].shape[0]))
     return data
 
-
-def fill_na(data, credit_detail):
-    ''' 
-        1. Les None dans les variables du crédit sont remplacés par des 0 (absence de crédit)
-        2.1. Pour les variables catégorielles, remplace par le plus frequent
-        2.2. Pour les variables quantitatives, remplace par la médiane
-    '''
-
-    # Les None dans les colonnes du crédit correspondent à des 0 (absence de crédit)
-    fill_with_zeros = [item for sublist in credit_detail for item in sublist]
-    for col in fill_with_zeros:
-        data[col].fillna(value = 0,
-                    inplace = True) 
-
-    # Pour les autres colonnes:
-    for col, dtype in zip(data.columns, data.dtypes):
-        # Variables catégorielles : fill with most frequent
-        if dtype == 'object':
-            if 'None' in data[col]:
-                data[col] = data[col].where(
-                            data[col]=='None',
-                            data[col].value_counts().idxmax()
-                            )
-        # Variables quantitatives : fill with median
-        else :
-            med = data[col].median()
-            data[col].fillna(value = 0 if (not(med) or np.isnan(med))  else med, inplace = True)
-
-    return data
-
 def encode_categ(data):
     # Encode categorical variables
     le = LabelEncoder()
@@ -150,7 +134,11 @@ def encode_categ(data):
             mapping[col]= dict(zip(le.inverse_transform(data[col].unique()), data[col].unique()))
     return [data,mapping]
 
-def detect_fill_na(data, mapping):
+def detect_na(data):
+    '''  Détecter les 0 qui sont en réalité des NAs '''
+    return data
+
+def fill_na(data, mapping):
     '''Identifie les 0 qui devraient être des NAs, et les remplace par des plus proche voisins 
     '''
     locataire = mapping['logement']['locataire']
@@ -175,12 +163,10 @@ def detect_fill_na(data, mapping):
 data = import_data()
 [budget, autres_infos, new_cols, credit_detail, to_keep] = create_masks(data)
 [data, to_keep] = create_features(data, to_keep, credit_detail)
-data = recup_orientation_old(data)
 data = filter_data(data)
 data = data.loc[:,to_keep]
-data = fill_na(data, credit_detail)
 [data, mapping] = encode_categ(data)
-data = detect_fill_na(data, mapping)
+data = fill_na(data, mapping)
 
 print("\nNombre final d'observations: {}".format(len(data)))
 
