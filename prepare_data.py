@@ -36,8 +36,7 @@ def import_data():
 
 # Masks:
 def create_masks(data) : 
-  budget = [#'typ', 
-            'revenus', 'allocations',
+  budget = ['revenus', 'allocations',
             'pensions_alim', 'revenus_FL', 'autre1', 'autre2', 'autre3', 'loyer',
             'charges_loc_cop', 'gdf', 'electicite', 'eau', 'tel_fixe', 'tel_port',
             'impots', 'taxe_fonciere', 'taxe_habitation', 'assurance_habitat',
@@ -48,13 +47,11 @@ def create_masks(data) :
             'abonnement_autre', 'autre_charge', 'taxe_ordure', 'autre_impots',
             'assurance_gav', 'assurance_prevoyance', 'assurance_scolaire',
             'pensions_alim_payee', 'internat', 'frais_garde', 'cantine','alim_hyg_hab'
-            #,'dat_budget'
+            #,'dat_budget', 'typ'
             ]
-  autres_infos = ['id','age', 'profession', 'logement', 'situation', #'transferable',
-                  'retard_facture', 'retard_pret',
-                   #'nature', 
-                   'orientation',
-                  'personne_charges'#, 'releve_bancaire'
+  autres_infos = ['id','age', 'profession', 'logement', 'situation', 'retard_facture',
+                 'retard_pret','orientation','personne_charges'
+                  #, 'releve_bancaire' ,'transferable', 'nature', 
                   ]
   new_cols = ('sum_mensualite',
               #'moy_nb_mensualite', 
@@ -96,9 +93,10 @@ def clean_budget(data, mapping):
         null_index = data[col].isnull()
         y_ = knn.fit(X, data_temp[col]).predict(data.loc[null_index,mask])
         data.loc[null_index,col] = y_
+        data[col] = data[col].astype(float)
   return data
 
-def aggreg(data, to_keep, credit_detail, new_cols) : 
+def create_features(data, to_keep, credit_detail, new_cols) : 
   # Aggrège les différents types de crédits
   for i, col in enumerate(new_cols):
       data.loc[:, col] = np.sum(data[credit_detail[i]], axis=1)
