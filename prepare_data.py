@@ -30,12 +30,15 @@ def import_data():
   data = pd.merge(left, right.loc[:,['id', 'age']], on='id')
   return data
 
+
 # ------- Local functions -------
 # -------------------------------
 
-
 # Masks:
 def create_masks(data) : 
+  ''' Divise les variables en sous parties.
+      Les variables inutiles sont exclues de ces sous parties.
+  '''
   budget = ['revenus', 'allocations',
             'pensions_alim', 'revenus_FL', 'autre1', 'autre2', 'autre3', 'loyer',
             'charges_loc_cop', 'gdf', 'electicite', 'eau', 'tel_fixe', 'tel_port',
@@ -53,29 +56,16 @@ def create_masks(data) :
                  'retard_pret','orientation','personne_charges'
                   #, 'releve_bancaire' ,'transferable', 'nature', 
                   ]
-  new_cols = ('sum_mensualite',
+  new_cols = ['sum_mensualite',
               #'moy_nb_mensualite', 
-              'sum_solde')
+              'sum_solde']
   credit_detail = []
   for text in new_cols:
       credit_detail.append(["{}_{}".format(text, i) for i in range(6)])
   credit_flat = [item for sublist in credit_detail for item in sublist] 
-  credit_flat += list(new_cols)
-  to_keep = autres_infos + credit_flat + budget
-  return [budget, autres_infos, new_cols, credit_detail, credit_flat, to_keep]
 
-def encode_categ(data):
-    # Encode categorical variables
-    le = LabelEncoder()
-    mapping = dict()
-    for col, dtype in zip(data.columns, data.dtypes):
-        if dtype == 'object':
-            data[col] = data[col].apply(lambda s: str(s))
-            # Replace 0 and NaNs with unique label : 'None'
-            data[col] = data[col].where(~data[col].isin(['0','nan']), 'None')
-            data[col] = le.fit_transform(data[col])
-            mapping[col]= dict(zip(le.inverse_transform(data[col].unique()), data[col].unique()))
-    return [data,mapping]
+  to_keep = autres_infos + credit_flat + new_cols + budget
+  return [budget, autres_infos, new_cols, credit_detail, to_keep]
 
 def clean_budget(data, mapping):
   '''Identifie les 0 qui devraient être des NAs, et les remplace par des plus proche voisins 
@@ -96,9 +86,9 @@ def clean_budget(data, mapping):
         data[col] = data[col].astype(float)
   return data
 
-def create_features(data, to_keep, credit_detail, new_cols) : 
+def create_features(data, to_keep, credit_detail) : 
   # Aggrège les différents types de crédits
-  for i, col in enumerate(new_cols):
+  for i, col in enumerate(credit_detail):
       data.loc[:, col] = np.sum(data[credit_detail[i]], axis=1)
 
   # Aggrège les différentes catégories du budget
@@ -154,21 +144,23 @@ def filter_data(data):
     return data
 
 
-def fill_na(data,mapping, credit_flat):
+def fill_na(data, credit_detail):
   ''' Fill NA with median of the column
     To be improved
   '''
   # Variables catégorielles
-  for col in mapping:
-    if 'None' in mapping[col]:
-      data[col] = data[col].where(
-                      data[col].isin([mapping[col]['None']]),
-                      # Valeur de remplacement des None : -- à améliorer --
-                      data[col].value_counts().idxmax()
-                      )
+  for col, dtype in zip(data.columns, data.dtypes):
+    if dtype == 'object':
+      if 'None' in data[col]:
+        data[col] = data[col].where(
+                        data[col]=='None',
+                        # Valeur de remplacement des None : most frequent
+                        data[col].value_counts().idxmax()
+                        )
+
 
   # Les None dans les colonnes du crédit correspondent à des 0 (absence de crédit)
-  fill_with_zeros = credit_flat
+  fill_with_zeros = [item for sublist in credit_detail for item in sublist]  
   for col in fill_with_zeros:
     data[col].fillna(value = 0,
                     inplace = True)  
@@ -184,13 +176,12 @@ def fill_na(data,mapping, credit_flat):
 def prepare_all():
   ''' Ici on fait tout'''
   data = import_data()
-  [budget, autres_infos, new_cols, credit_detail, credit_flat, to_keep] = create_masks(data)
-  [data, mapping] = encode_categ(data)
+  [budget, autres_infos, new_cols, credit_detail, to_keep] = create_masks(data)
   data = age_control(data)
-  [data, to_keep] = aggreg(data, to_keep, credit_detail, new_cols)
+  [data, to_keep] = create_features(data, to_keep, credit_detail)
   data = filter_data(data)
-  data = fill_na(data,mapping, credit_flat)
-  data = clean_budget(data, mapping)
+  data = fill_na(data, credit_detail)
+  data = clean_budget(data)
   data = recup_orientation_old(data)
   data = data.loc[:,to_keep]
   return data
