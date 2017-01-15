@@ -101,6 +101,10 @@ def filter_data(data):
     data = data.loc[data.charges>0,:]
     data.personne_charges = data.personne_charges.apply(abs)
     data=data[data.revenus.notnull()] # Elimine ceux pour lesquels on a pas de budget
+
+    print("\nNombre de dossiers par plateforme d'origine après filtrage :")
+    for e in ["CRESUS", "social", "bancaire"]:
+        print('{:>15} | {:3.0f}'.format(e,data[data.plateforme==e].shape[0]))
     return data
 
 
@@ -178,7 +182,7 @@ data = fill_na(data, credit_detail)
 [data, mapping] = encode_categ(data)
 data = detect_fill_na(data, mapping)
 
-print('Number of observations kept: {}'.format(len(data)))
+print("\nNombre final d'observations: {}".format(len(data)))
 
 # Split to training and test set
 mask = ~data.columns.isin(['orientation', 'id'])
