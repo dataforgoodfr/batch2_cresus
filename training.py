@@ -11,27 +11,7 @@ from sklearn.cross_validation import train_test_split
 
 import xgboost as xgb
 
-
-# ------ Local functions -----
-
-def import_data():
-    """ 
-      Import the dataset from SQL extract, joins additional data
-    """
-
-    # Import sql extract 'out.csv' as left for future join with age data
-    left = pd.read_csv('out.csv', sep='\t')
-
-    #Import birth and file opening years, and computing difference to get age
-    naissance = pd.read_csv('annee_naissance.csv',sep=';')
-    naissance.columns = ['id', 'annee_naissance']
-    ouverture = pd.read_csv('annee_ouverture.csv',sep=';')
-    right = pd.merge(ouverture, naissance, on='id')
-    right['age'] = right['annee_ouverture']-right['annee_naissance']
-
-    # left joining age to the extract
-    data = pd.merge(left, right.loc[:,['id', 'age']], on='id')
-    return data
+from import_data import import_data
 
 
 # ------- Local functions -------
@@ -185,20 +165,15 @@ def detect_fill_na(data, mapping):
             data[col] = data[col].astype(float)
     return data
 
-def prepare_data(data):
-    ''' Aggrège les fonctions de préparation du dataset'''
-    [budget, autres_infos, new_cols, credit_detail, to_keep] = create_masks(data)
-    [data, to_keep] = create_features(data, to_keep, credit_detail)
-    data = recup_orientation_old(data)
-    data = filter_data(data)
-    data = data.loc[:,to_keep]
-    return data
-
 
 # ------ Main ------
 
 data = import_data()
-data = prepare_data(data)
+[budget, autres_infos, new_cols, credit_detail, to_keep] = create_masks(data)
+[data, to_keep] = create_features(data, to_keep, credit_detail)
+data = recup_orientation_old(data)
+data = filter_data(data)
+data = data.loc[:,to_keep]
 data = fill_na(data, credit_detail)
 [data, mapping] = encode_categ(data)
 data = detect_fill_na(data, mapping)
