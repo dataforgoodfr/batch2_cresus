@@ -18,9 +18,10 @@ from import_data import import_data
 # -------------------------------
 
 # Masks:
-def create_masks(data) : 
-    ''' Divise les variables en sous parties.
-          Les variables inutiles sont exclues de ces sous parties.
+def create_masks(data) :
+    ''' Créée les masques qui serviront à séléctionner les variables pertinentes.
+        Divise les variables budgétaires en sous parties.
+        Les variables inutiles sont exclues de ces sous parties.
     '''
     budget = ['revenus', 'allocations',
               'pensions_alim', 'revenus_FL', 'autre1', 'autre2', 'autre3', 'loyer',
@@ -37,20 +38,22 @@ def create_masks(data) :
             ]
     autres_infos = ['id','age', 'profession', 'logement', 'situation', 'retard_facture',
                  'retard_pret','orientation','personne_charges'
-                  #, 'releve_bancaire' ,'transferable', 'nature', 
+                  #, 'releve_bancaire' ,'transferable', 'nature',
                   ]
     new_cols = ['sum_mensualite',
-              #'moy_nb_mensualite', 
+              #'moy_nb_mensualite',
               'sum_solde']
     credit_detail = []
     for text in new_cols:
         credit_detail.append(["{}_{}".format(text, i) for i in range(6)])
-    credit_flat = [item for sublist in credit_detail for item in sublist] 
+    credit_flat = [item for sublist in credit_detail for item in sublist]
 
     to_keep = autres_infos + credit_flat + new_cols + budget
+
+    print("\ncreate_masks ------------------------------------------\n")
     return [budget, autres_infos, new_cols, credit_detail, to_keep]
 
-def create_features(data, to_keep, credit_detail) : 
+def create_features(data, to_keep, credit_detail) :
     '''
         1. Aggrège les mensualités et soldes
         2. Aggrège les revenus et les charges
@@ -64,7 +67,7 @@ def create_features(data, to_keep, credit_detail) :
     fill_with_zeros = [item for sublist in credit_detail for item in sublist]
     for col in fill_with_zeros:
         data[col].fillna(value = 0,
-                    inplace = True) 
+                    inplace = True)
 
     # Aggrège les différentes catégories du budget
     data['revenus_tot'] = data.loc[:, ('revenus',
@@ -96,30 +99,31 @@ def create_features(data, to_keep, credit_detail) :
         'Microcredit'       : 5}
     data.orientation_old = data.orientation_old.apply(lambda x : d.get(x,0))
 
-    data.ix[(data.orientation_old > 1) 
-          & (data.orientation<=1), 'orientation'] =  data.ix[(data.orientation_old > 1) 
-                                                          & (data.orientation<=1), 'orientation_old']    
-
+    data.ix[(data.orientation_old > 1)
+          & (data.orientation<=1), 'orientation'] =  data.ix[(data.orientation_old > 1)
+                                                          & (data.orientation<=1), 'orientation_old']
+    print("\ncreate_features ---------------------------------------\n")
     return [data, to_keep]
 
-
-def recup_orientation_old(data):
-
-    return data
-
 def filter_data(data):
-    ''' Filter observations'''
+    ''' Filtre les dossiers qui
+    - n'ont pas reçu d'orientation,
+    - dont l'orientation est inconnue
+    - dont l'orientation est inconnue correspond plutôt à des mesures professionnelles (microcrédit)
+    - dont on a pas de données budgétaires'''
+
     data = data[(data.orientation > 1)&(data.orientation < 5)]
-    data = data[(data.sum_mensualite > 0) & (data.sum_mensualite < 8000)]
-    data = data[(data.age>=18) & (data.age<=90)]
     data = data.loc[data.charges>0,:]
-    data.personne_charges = data.personne_charges.apply(abs)
     data=data[data.revenus.notnull()] # Elimine ceux pour lesquels on a pas de budget
 
-    print("\nNombre de dossiers par plateforme d'origine après filtrage :")
+    print("\nfilter_data -------------------------------------------")
+    print("Nombre de dossiers par plateforme d'origine après filtrage :")
     for e in ["CRESUS", "social", "bancaire"]:
         print('{:>15} | {:3.0f}'.format(e,data[data.plateforme==e].shape[0]))
+    print("\n")
     return data
+
+
 
 def encode_categ(data):
     # Encode categorical variables
@@ -132,14 +136,29 @@ def encode_categ(data):
             data[col] = data[col].where(~data[col].isin(['0','nan']), 'None')
             data[col] = le.fit_transform(data[col])
             mapping[col]= dict(zip(le.inverse_transform(data[col].unique()), data[col].unique()))
+
+    print("\nencode_categ ------------------------------------------\n")
     return [data,mapping]
 
+
 def detect_na(data):
-    '''  Détecter les 0 qui sont en réalité des NAs '''
+    '''  Détecter les 0 qui sont en réalité des NAs et les valeurs aberrantes'''
+    n_tot = data.shape[0]
+
+    print("detect_na ---------------------------------------------")
+
+    mens_check = data[(data.sum_mensualite <= 0) & (data.sum_mensualite > 8000)].shape[0]
+    print("Mensualiés : %i valeurs aberrantes soit %i%% du jeu. " %(mens_check, 100*mens_check/n_tot))
+
+    age_check = data[(data.age<18) & (data.age>90)].shape[0]
+    print("Age : %i valeurs aberrantes soit %i%% du jeu. " %(age_check, 100*age_check/n_tot))
+
+    pac_check = data.personne_charges[(data.personne_charges<0) & (data.personne_charges>10)].shape[0]
+    print("Personnes à charge : %i valeurs aberrantes soit %i%% du jeu. \n" %(pac_check, 100*pac_check/n_tot))
     return data
 
 def fill_na(data, mapping):
-    '''Identifie les 0 qui devraient être des NAs, et les remplace par des plus proche voisins 
+    '''Identifie les 0 qui devraient être des NAs, et les remplace par des plus proche voisins
     '''
     locataire = mapping['logement']['locataire']
     n_neighbors = 5
@@ -155,6 +174,8 @@ def fill_na(data, mapping):
             y_ = knn.fit(X, data_temp[col]).predict(data.loc[null_index,mask])
             data.loc[null_index,col] = y_
             data[col] = data[col].astype(float)
+
+    print("\nfill_data ---------------------------------------------\n")
     return data
 
 
@@ -166,36 +187,41 @@ data = import_data()
 data = filter_data(data)
 data = data.loc[:,to_keep]
 [data, mapping] = encode_categ(data)
+data = detect_na(data)
 data = fill_na(data, mapping)
 
-print("\nNombre final d'observations: {}".format(len(data)))
 
+print("\nNombre final d'observations: {}".format(len(data)))
+print("Nombre final de colonnes: {}\n".format(data.shape[1]))
 # Split to training and test set
 mask = ~data.columns.isin(['orientation', 'id'])
 Xtrain, Xtest, ytrain, ytest = train_test_split(data.loc[:, mask], data.orientation, random_state = 10)
 
+# --- Classification ----
+RFC = True
+XGB = True
 
 # ---- Random Forest ----
 # -----------------------
-if (False):
-    rfc = RandomForestClassifier(random_state = 10, n_estimators = 100)
+if (RFC):
+    rfc = RandomForestClassifier(random_state = 10, n_estimators = 200)
     rfc.fit(Xtrain, ytrain)
-    ypred = rfc.predict(Xtest)
-
+    ypred_rf = rfc.predict(Xtest)
 
     feat_imp = dict()
     for i, j in zip(Xtrain.columns, rfc.feature_importances_*100):
         feat_imp[i]=j
-    feat_imp = sorted(feat_imp.items(), key = lambda x : x[1], reverse = True)
-    print('Showing feature importances:')
+    feat_imp = sorted(feat_imp.items(), key = lambda x : x[1], reverse = True)[:10]
+    print('Showing 10 biggest feature importances:')
     for (i,j) in feat_imp:
       print('{:>25} | {:3.2f}'.format(i,j))
 
+    print('RF accuracy is {}'.format(np.mean(ypred_rf == ytest)))
+
 # ------ XGBOOST ------
 #----------------------
-if (True):
+if (XGB):
     # Encoding to 1 - n_classes
-
     label_train = ytrain.map(lambda x : int(x-2))
     label_test = ytest.map(lambda x : int(x-2))
     dtrain = xgb.DMatrix(Xtrain, label = label_train)
@@ -203,12 +229,9 @@ if (True):
 
     # specify parameters via map
     param = {'max_depth':6, 'eta':0.1, 'silent':1, 'objective':'multi:softmax' , 'num_class':3}
-    num_round = 2
+    num_round = 20
     bst = xgb.train(param, dtrain, num_round)
     # make prediction
     label_pred = bst.predict(dtest)
-    ypred = label_pred+2
-
-    print('XGBoost accuracy is {}'.format(np.mean(ypred == ytest)))
-
-print('Accuracy is {}'.format(np.mean(ypred == ytest)))
+    ypred_xgb = label_pred+2
+    print('XGBoost accuracy is {}'.format(np.mean(ypred_xgb == ytest)))
