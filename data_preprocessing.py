@@ -2,17 +2,8 @@
 
 import pandas as pd
 import numpy as np
-from pprint import pprint
-
 from sklearn import neighbors
 from sklearn.preprocessing import LabelEncoder
-from sklearn.ensemble import RandomForestClassifier
-from sklearn.cross_validation import train_test_split
-
-import xgboost as xgb
-
-from import_data import import_data
-
 
 
 # ------- Local functions -------
@@ -191,61 +182,3 @@ def fill_na(data, mapping):
 
     print("\nfill_data ---------------------------------------------\n")
     return data
-
-
-# ------ Main ------
-
-data = import_data()
-[budget, autres_infos, new_cols, credit_detail, to_keep] = create_masks(data)
-[data, to_keep] = create_features(data, to_keep, credit_detail)
-data = filter_data(data)
-data = data.loc[:,to_keep]
-[data, mapping] = encode_categ(data)
-data = detect_na(data)
-data = fill_na(data, mapping)
-
-
-print("\nNombre final d'observations: {}".format(len(data)))
-print("Nombre final de colonnes: {}\n".format(data.shape[1]))
-# Split to training and test set
-mask = ~data.columns.isin(['orientation', 'id'])
-Xtrain, Xtest, ytrain, ytest = train_test_split(data.loc[:, mask], data.orientation, random_state = 10)
-
-# --- Classification ----
-RFC = True
-XGB = True
-
-# ---- Random Forest ----
-# -----------------------
-if (RFC):
-    rfc = RandomForestClassifier(random_state = 10, n_estimators = 200)
-    rfc.fit(Xtrain, ytrain)
-    ypred_rf = rfc.predict(Xtest)
-
-    feat_imp = dict()
-    for i, j in zip(Xtrain.columns, rfc.feature_importances_*100):
-        feat_imp[i]=j
-    feat_imp = sorted(feat_imp.items(), key = lambda x : x[1], reverse = True)[:10]
-    print('Showing 10 biggest feature importances:')
-    for (i,j) in feat_imp:
-      print('{:>25} | {:3.2f}'.format(i,j))
-
-    print('RF accuracy is {}'.format(np.mean(ypred_rf == ytest)))
-
-# ------ XGBOOST ------
-#----------------------
-if (XGB):
-    # Encoding to 1 - n_classes
-    label_train = ytrain.map(lambda x : int(x-2))
-    label_test = ytest.map(lambda x : int(x-2))
-    dtrain = xgb.DMatrix(Xtrain, label = label_train)
-    dtest = xgb.DMatrix(Xtest, label = label_test)
-
-    # specify parameters via map
-    param = {'max_depth':6, 'eta':0.1, 'silent':1, 'objective':'multi:softmax' , 'num_class':3}
-    num_round = 20
-    bst = xgb.train(param, dtrain, num_round)
-    # make prediction
-    label_pred = bst.predict(dtest)
-    ypred_xgb = label_pred+2
-    print('XGBoost accuracy is {}'.format(np.mean(ypred_xgb == ytest)))
