@@ -32,9 +32,9 @@ def import_data():
     # Jointure des données
     data = pd.merge(left, right.loc[:,['id', 'age']], on='id')
     print("\nimport_data -------------------------------------------")
-    print("%i lignes et %i colonnes ont été importées après : \n- suppression de %i \
-    lignes issues de la fédération Crésus hors Alsace ; \n- ajout des colonnes 'age' et \
-    'plateforme'."    %(left.shape[0], left.shape[1], raw.shape[0]-left.shape[0]))
+    print("%i lignes et %i colonnes ont été importées après : \n- suppression de %i "
+        "lignes issues de la fédération Crésus hors Alsace ; \n- ajout des colonnes 'age'"
+        " et 'plateforme'."    %(left.shape[0], left.shape[1], raw.shape[0]-left.shape[0]))
     print("\nNombre de dossiers par plateforme d'origine :")
     for e in ["CRESUS", "social", "bancaire"]:
         print('{:>15} | {:3.0f}'.format(e,data[data.plateforme==e].shape[0]))

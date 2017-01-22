@@ -138,7 +138,8 @@ def filter_data(data):
 
 
 def encode_categ(data):
-    # Encode categorical variables
+    """Encode les variables catégorielles
+        Renvoie le jeu de données modifié et un mapping"""
     le = LabelEncoder()
     mapping = dict()
     for col, dtype in zip(data.columns, data.dtypes):
