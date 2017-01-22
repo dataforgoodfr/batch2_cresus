@@ -2,6 +2,8 @@
 *.csv
 *.pyc
 .DS_Store
+.idea/
+__pycache__/
 <<<<<<< Updated upstream
 algos.ipynb
 =======
