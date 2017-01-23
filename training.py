@@ -116,14 +116,14 @@ def filter_data(data):
     print("\nfilter_data -------------------------------------------")
     n_tot = data.shape[0]
 
-    orientation_check = data[(data.orientation < 2)&(data.orientation > 4)].shape[0]
-    print("Orientations : %i valeurs non retenues soit %i%% du jeu." %(orientation_check, 100*orientation_check/n_tot))
+    orientation_check = data[(data.orientation < 2)|(data.orientation > 4)].shape[0]
+    print("Orientations : %i valeurs autres que 2, 3 ou 4, soit %.2f%% du jeu." %(orientation_check, 100*orientation_check/n_tot))
 
     charges_check = data.loc[data.charges<=0,:].shape[0]
-    print("Charges : %i valeurs négatives ou nulles soit %i%% du jeu." %(charges_check, 100*charges_check/n_tot))
+    print("Charges : %i valeurs négatives ou nulles soit %.2f%% du jeu." %(charges_check, 100*charges_check/n_tot))
 
-    revenus_check = data[data.revenus_tot == 0].shape[0]
-    print("Revenus : %i valeurs non retenues soit %i%% du jeu." %(revenus_check, 100*revenus_check/n_tot))
+    revenus_check = data[data.revenus_tot <= 0].shape[0]
+    print("Revenus : %i valeurs non retenues soit %.2f%% du jeu." %(revenus_check, 100*revenus_check/n_tot))
 
     data = data[(data.orientation > 1)&(data.orientation < 5)]
     data = data.loc[data.charges>0,:]
@@ -155,42 +155,51 @@ def encode_categ(data):
 
 
 def detect_na(data):
-    '''  Détecter les 0 qui sont en réalité des NAs et les valeurs aberrantes'''
+    '''  Détecte les valeurs aberrantes et les remplace par des na'''
     n_tot = data.shape[0]
 
     print("detect_na ---------------------------------------------")
 
-    mens_check = data[(data.sum_mensualite <= 0) & (data.sum_mensualite > 8000)].shape[0]
-    print("Mensualiés : %i valeurs aberrantes soit %i%% du jeu. " %(mens_check, 100*mens_check/n_tot))
+    mens_check = data[(data.sum_mensualite <= 0) | (data.sum_mensualite > 8000)].shape[0]
+    print("Mensualiés : %i valeurs aberrantes soit %.2f%% du jeu. " %(mens_check, 100*mens_check/n_tot))
 
-    age_check = data[(data.age<18) & (data.age>90)].shape[0]
-    print("Age : %i valeurs aberrantes soit %i%% du jeu. " %(age_check, 100*age_check/n_tot))
+    age_check = data[(data.age<18) | (data.age>90)].shape[0]
+    print("Age : %i valeurs aberrantes soit %.2f%% du jeu. " %(age_check, 100*age_check/n_tot))
 
-    pac_check = data.personne_charges[(data.personne_charges<0) & (data.personne_charges>10)].shape[0]
-    print("Personnes à charge : %i valeurs aberrantes soit %i%% du jeu. \n" %(pac_check, 100*pac_check/n_tot))
-    return data
+    pac_check = data.personne_charges[(data.personne_charges<0) | (data.personne_charges>10)].shape[0]
+    print("Personnes à charge : %i valeurs aberrantes soit %.2f%% du jeu. \n" %(pac_check, 100*pac_check/n_tot))
 
-def fill_na(data, mapping):
-    '''Identifie les 0 qui devraient être des NAs, et les remplace par des plus proche voisins
-    '''
+    data['sum_mensualite'] = data['sum_mensualite'].where(((data.sum_mensualite > 0) & (data.sum_mensualite <= 8000)), None)
+    data['age'] = data['age'].where(((data.age>=18) & (data.age<=90)), None)
+    data['personne_charges'] = data['personne_charges'].where(((data.personne_charges>=0) & (data.personne_charges<=10)), None)
 
     locataire = mapping['logement']['locataire']
-    n_neighbors = 5
     for col in ['loyer', 'gdf', 'electicite', 'eau', 'assurance_habitat']:
         regle = (data.logement == locataire) & (data[col] == 0)
         print("%s : %i valeurs sont effacées et recomplétées" %(col,data[regle][col].shape[0]))
         data[col] = data[col].where(~regle, None)
+
+    return data
+
+def fill_na(data, mapping):
+    '''Imputation des valeurs manquantes par plus proche voisins
+    '''
+
+    print("\nfill_data ---------------------------------------------\n")
+    n_neighbors = 5
+    sparse_cols = ['sum_mensualite', 'age', 'personne_charges', 'loyer', 'gdf', 'electicite', 'eau', 'assurance_habitat']
+    for col in sparse_cols:
         if data[col].isnull().sum()>0:
+            print("%s : %.2f%% de valeurs maquantes" %(col,100*data[col].isnull().sum()/data.shape[0]))
             knn = neighbors.KNeighborsRegressor(n_neighbors)
-            data_temp = data.loc[(data.logement== locataire) & (~data[col].isnull()), :]
-            mask = ~data.columns.isin([col, 'id'])
+            data_temp = data.loc[~data[col].isnull(), :]
+            mask = ~data.columns.isin(sparse_cols + ['id'])
             X = data_temp.loc[:, mask]
             null_index = data[col].isnull()
             y_ = knn.fit(X, data_temp[col]).predict(data.loc[null_index,mask])
             data.loc[null_index,col] = y_
             data[col] = data[col].astype(float)
 
-    print("\nfill_data ---------------------------------------------\n")
     return data
 
 
@@ -206,7 +215,7 @@ data = detect_na(data)
 data = fill_na(data, mapping)
 
 
-print("\nNombre final d'observations: {}".format(len(data)))
+print("\n\nNombre final d'observations: {}".format(len(data)))
 print("Nombre final de colonnes: {}\n".format(data.shape[1]))
 # Split to training and test set
 mask = ~data.columns.isin(['orientation', 'id'])
