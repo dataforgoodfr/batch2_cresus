@@ -1,5 +1,14 @@
 # -*- coding: utf-8 -*-
 
+# Work-around for Atom Script encoding issue
+import sys
+import io
+
+sys.stdout = io.TextIOWrapper(sys.stdout.detach(), encoding = 'utf-8')
+sys.stderr = io.TextIOWrapper(sys.stderr.detach(), encoding = 'utf-8')
+
+# c'est parti
+
 import pandas as pd
 import numpy as np
 from pprint import pprint
@@ -154,7 +163,7 @@ def encode_categ(data):
     return [data,mapping]
 
 
-def detect_na(data):
+def detect_na(data, mapping):
     '''  Détecte les valeurs aberrantes et les remplace par des na'''
     n_tot = data.shape[0]
 
@@ -181,7 +190,7 @@ def detect_na(data):
 
     return data
 
-def fill_na(data, mapping):
+def fill_na(data):
     '''Imputation des valeurs manquantes par plus proche voisins
     '''
 
@@ -190,7 +199,7 @@ def fill_na(data, mapping):
     sparse_cols = ['sum_mensualite', 'age', 'personne_charges', 'loyer', 'gdf', 'electicite', 'eau', 'assurance_habitat']
     for col in sparse_cols:
         if data[col].isnull().sum()>0:
-            print("%s : %.2f%% de valeurs maquantes" %(col,100*data[col].isnull().sum()/data.shape[0]))
+            print("%s : %.2f%% de valeurs manquantes" %(col,100*data[col].isnull().sum()/data.shape[0]))
             knn = neighbors.KNeighborsRegressor(n_neighbors)
             data_temp = data.loc[~data[col].isnull(), :]
             mask = ~data.columns.isin(sparse_cols + ['id'])
@@ -211,8 +220,8 @@ data = import_data()
 data = filter_data(data)
 data = data.loc[:,to_keep]
 [data, mapping] = encode_categ(data)
-data = detect_na(data)
-data = fill_na(data, mapping)
+data = detect_na(data, mapping)
+data = fill_na(data)
 
 
 print("\n\nNombre final d'observations: {}".format(len(data)))
