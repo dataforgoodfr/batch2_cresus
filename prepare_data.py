@@ -1,4 +1,8 @@
 # -*- coding: utf-8 -*-
+#------------------------
+# THIS SCRIPT IS OBSOLETE
+#------------------------
+
 
 import pandas as pd
 import numpy as np
