@@ -1,11 +1,11 @@
 # -*- coding: utf-8 -*-
 
 # Work-around for Atom Script encoding issue
-import sys
-import io
-
-sys.stdout = io.TextIOWrapper(sys.stdout.detach(), encoding = 'utf-8')
-sys.stderr = io.TextIOWrapper(sys.stderr.detach(), encoding = 'utf-8')
+# import sys
+# import io
+# #
+# sys.stdout = io.TextIOWrapper(sys.stdout.detach(), encoding = 'utf-8')
+# sys.stderr = io.TextIOWrapper(sys.stderr.detach(), encoding = 'utf-8')
 
 # c'est parti
 
@@ -69,15 +69,16 @@ def create_features(data, to_keep, credit_detail) :
         2. Aggrège les revenus et les charges
         3. Récupère les informations contenues dans 'orientation_old' si besoin
     '''
-    # Aggrège les différents types de crédits
-    for i, col in enumerate(['sum_mensualite', 'sum_solde']):
-        data.loc[:, col] = np.sum(data[credit_detail[i]], axis=1)
 
     # Les None dans les colonnes du crédit correspondent à des 0 (absence de crédit)
     fill_with_zeros = [item for sublist in credit_detail for item in sublist]
     for col in fill_with_zeros:
         data[col].fillna(value = 0,
                     inplace = True)
+
+    # Aggrège les différents types de crédits
+    for i, col in enumerate(['sum_mensualite', 'sum_solde']):
+        data.loc[:, col] = np.sum(data[credit_detail[i]], axis=1)
 
     # Aggrège les différentes catégories du budget
     data['revenus_tot'] = data.loc[:, ('revenus',
