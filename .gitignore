@@ -8,8 +8,7 @@ __pycache__/
 cresus_exploration.ipynb
 data_preprocessing.py
 
-<<<<<<< Updated upstream
 algos.ipynb
-=======
 xgboost
->>>>>>> Stashed changes
+
+venv
