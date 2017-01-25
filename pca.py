@@ -226,4 +226,4 @@ import matplotlib.pyplot as plt
 import pylab
 pylab.ion()
 
-plt.plot(pca.explained_variance_ratio_)
+plt.plot(pca.explained_variance_ratio_[1:10])
