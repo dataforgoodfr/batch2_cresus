@@ -215,7 +215,7 @@ def fill_na(data):
 
 # ------ Main ------
 
-data = import_data()
+data = import_data(folder = 'data')
 [budget, autres_infos, new_cols, credit_detail, to_keep] = create_masks(data)
 [data, to_keep] = create_features(data, to_keep, credit_detail)
 data = filter_data(data)

@@ -1,18 +1,19 @@
 # -*- coding: utf-8 -*-
 
 import pandas as pd
+import os
 
-def import_data():
+def import_data(folder):
     """
         Importe les données extraites de la base de données anonymisée de CRESUS,
         ajoute l'age et filtre les données issues des antennes de la fédération autre que celle de Strasbourg.
     """
 
     # Import de l'extrait de la base anonymisée
-    raw = pd.read_csv('out.csv', sep='\t')
+    raw = pd.read_csv(os.path.join(folder,'out.csv'), sep='\t')
 
     # Import de la table relationnelle partenaires, et sélection des ids pertinents
-    origine =    pd.read_csv('partenaires.csv', sep=';')
+    origine =    pd.read_csv(os.path.join(folder,'partenaires.csv'), sep=';')
     relevant_idx = origine.id_partenaire[origine.plateforme.isin(["bancaire", "social", "CRESUS"])]
 
     # Suppression des lignes issues de platformes hors Alsace
@@ -23,9 +24,9 @@ def import_data():
     left = pd.merge(left, origine.loc[:,['id_group', 'plateforme']], on='id_group')
 
     # Import des années de naissance et d'ouverture, calcul de la différence pour obtenir l'age
-    naissance = pd.read_csv('annee_naissance.csv',sep=';')
+    naissance = pd.read_csv(os.path.join(folder,'annee_naissance.csv'),sep=';')
     naissance.columns = ['id', 'annee_naissance']
-    ouverture = pd.read_csv('annee_ouverture.csv',sep=';')
+    ouverture = pd.read_csv(os.path.join(folder,'annee_ouverture.csv'),sep=';')
     right = pd.merge(ouverture, naissance, on='id')
     right['age'] = right['annee_ouverture']-right['annee_naissance']
 
