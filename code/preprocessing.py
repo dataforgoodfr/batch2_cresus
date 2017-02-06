@@ -213,4 +213,4 @@ data = fill_na(data)
 print("\n\nNombre final d'observations: {}".format(len(data)))
 print("Nombre final de colonnes: {}\n".format(data.shape[1]))
 
-data.to_csv("data/preprocessed_data.csv")
+data.to_csv("data/preprocessed_data.csv", index = False)
