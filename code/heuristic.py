@@ -16,7 +16,6 @@ def unite_consommation(data):
     - 1 UC pour le premier adulte du ménage ;
     - 0,5 UC pour les autres personnes de 14 ans ou plus ;
     - 0,3 UC pour les enfants de moins de 14 ans.
-
     """
 
     data['u_c'] = 1
@@ -42,6 +41,12 @@ def rav(data):
     data['rav'] = (data['revenus_tot'] - data['charges'])/data['u_c']
     return data
 
+def heuristic(data):
+    """Prédiction de l'orientation en fonction des seuils 100 et 400 euros de reste à vivre"""
+    data['rav_pred'] = 3
+    data['rav_pred'] = data['rav_pred'].where(~(data['rav'] >= 400), 2)
+    data['rav_pred'] = data['rav_pred'].where(~(data['rav'] <= 100), 4)
+    return(data)
 
 #------------ Main -----------------------------
 
@@ -49,9 +54,15 @@ def rav(data):
 with open('../data/mapping.p', 'rb') as fp:
     mapping = pickle.load(fp)
 
+# Calcul de l'unité de conso, du rav et de la prédiction
 data = pd.read_csv("../data/preprocessed_data.csv")
 data = unite_consommation(data)
 data = rav(data)
+data = heuristic(data)
+
+print('accuracy : %f' %np.mean(data['rav_pred'] == data['orientation']))
+print(pd.crosstab(data['rav_pred'], data['orientation']))
+
 
 # Plots
 
@@ -60,15 +71,15 @@ B = data[data.orientation == 3]
 C = data[data.orientation == 4]
 
 
-fig = plt.figure(figsize=(12, 8))
+fig = plt.figure(figsize=(5, 5))
 fig.add_subplot(211)
 h = plt.hist([A['rav'],B['rav'],C['rav']], color = ['green', 'orange', 'red'],bins= 30,
             range=[-1000, 4000],
             stacked=True, normed = True)
-plt.title('Reste à vivre', fontsize=16)
+plt.title('Reste à vivre', fontsize=10)
 fig.add_subplot(212) # 2 x 2 grid, 2nd subplot
 
 h = plt.hist([A['sum_solde'],B['sum_solde'],C['sum_solde']], color = ['green', 'orange', 'red'],bins= 30,
             range=[0, 400000],
             stacked=True, normed = True)
-plt.title('Capital restant dû', fontsize=16)
+plt.title('Capital restant dû', fontsize=10)
