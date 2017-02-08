@@ -1,12 +1,5 @@
 # -*- coding: utf-8 -*-
 
-# Work-around for Atom Script encoding issue
-# import sys
-# import io
-# #
-# sys.stdout = io.TextIOWrapper(sys.stdout.detach(), encoding = 'utf-8')
-# sys.stderr = io.TextIOWrapper(sys.stderr.detach(), encoding = 'utf-8')
-
 import pandas as pd
 import numpy as np
 from pprint import pprint
