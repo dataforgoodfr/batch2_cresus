@@ -200,6 +200,13 @@ def fill_na(data):
 
     return data
 
+def max_filter(data):
+    """Filtre Max"""
+    data = data[(data.charges > 400) & (data.revenus_tot > 400)]
+    data['orientation'] = data.where(~(data.orientation == 3), 2)['orientation']
+    print('Nombre de lignes retenures %i' %data.shape[0])
+    return data
+
 
 # ------ Main ------
 
@@ -211,6 +218,7 @@ data = data.loc[:,to_keep]
 [data, mapping] = encode_categ(data)
 data = detect_na(data, mapping)
 data = fill_na(data)
+data = max_filter(data)
 
 print("\n\nNombre final d'observations: {}".format(len(data)))
 print("Nombre final de colonnes: {}\n".format(data.shape[1]))

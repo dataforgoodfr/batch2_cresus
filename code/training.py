@@ -11,10 +11,12 @@ from sklearn.model_selection import StratifiedKFold
 
 import xgboost as xgb
 
-data = pd.read_csv("data/preprocessed_data.csv")
+data = pd.read_csv("../data/preprocessed_data.csv")
 
 # Useful variables
-lab = {2.: 'Accompagnement', 3.: 'Mediation', 4.: 'Surendettement'}
+lab = {2.: 'Accompagnement',
+       #3.: 'Mediation',
+       4.: 'Surendettement'}
 
 
 # Split to training and test set
@@ -24,8 +26,8 @@ y = data.orientation
 Xtrain, Xtest, ytrain, ytest = train_test_split(X, y, random_state = 10)
 
 # --- Classification ----
-RFC = False
-XGB = True
+RFC = True
+XGB = ~RFC
 
 # ---- Random Forest ----
 # -----------------------
