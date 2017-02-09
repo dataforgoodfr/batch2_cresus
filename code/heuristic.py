@@ -38,7 +38,7 @@ def rav(data):
     moins les charges totales, divisée par l'unitité de consommation
     Requiert donc d'avoir calculé l'unité de consommation.
     """
-    data['rav'] = (data['revenus_tot'] - data['charges'])/data['u_c']
+    data['rav'] = (data['revenus_tot'] - data['charges'] - data['sum_mensualite'])/data['u_c']
     return data
 
 def heuristic(data):
@@ -66,15 +66,17 @@ print(pd.crosstab(data['rav_pred'], data['orientation']))
 
 # Plots
 
-A = data[data.orientation == 2]
-B = data[data.orientation == 3]
-C = data[data.orientation == 4]
+A = data[(data.orientation == 2) & (data.charges > 400) & (data.revenus_tot > 400)]
+B = data[(data.orientation == 3) & (data.charges > 400) & (data.revenus_tot > 400)]
+C = data[(data.orientation == 4) & (data.charges > 400) & (data.revenus_tot > 400)]
+
+print(A.shape[0]+B.shape[0]+C.shape[0])
 
 
-fig = plt.figure(figsize=(5, 5))
+fig = plt.figure(figsize=(12, 12))
 fig.add_subplot(211)
 h = plt.hist([A['rav'],B['rav'],C['rav']], color = ['green', 'orange', 'red'],bins= 30,
-            range=[-1000, 4000],
+            range=[-1000, 2000],
             stacked=True, normed = True)
 plt.title('Reste à vivre', fontsize=10)
 fig.add_subplot(212) # 2 x 2 grid, 2nd subplot
