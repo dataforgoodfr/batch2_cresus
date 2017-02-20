@@ -1,10 +1,10 @@
-		
+
 ## Group credits by [id_dossier, type_credit]
 CREATE TABLE credits_bytype
-	SELECT id_dossier, 
-			type_credit, 
-			SUM(mensualite) AS sum_mensualite, 
-			AVG(nb_mensualite) moy_nb_mensualite, 
+	SELECT id_dossier,
+			type_credit,
+			SUM(mensualite) AS sum_mensualite,
+			AVG(nb_mensualite) moy_nb_mensualite,
 			SUM(solde) AS sum_solde
 	FROM credits
 	GROUP BY id_dossier, type_credit;
@@ -13,37 +13,37 @@ CREATE TABLE credits_bytype
 # Etale en colonnes les différentes catégories
 CREATE TABLE credits_extended
 	SELECT credits_bytype.*,
-		CASE WHEN type_credit = 0 
+		CASE WHEN type_credit = 0
 			THEN sum_mensualite END AS sum_mensualite_0,
 		CASE WHEN type_credit = 1
 			THEN sum_mensualite END AS sum_mensualite_1,
-		CASE WHEN type_credit = 2 
+		CASE WHEN type_credit = 2
 			THEN sum_mensualite END AS sum_mensualite_2,
-		CASE WHEN type_credit = 3 
+		CASE WHEN type_credit = 3
 			THEN sum_mensualite END AS sum_mensualite_3,
 		CASE WHEN type_credit = 4
 			THEN sum_mensualite END AS sum_mensualite_4,
 		CASE WHEN type_credit = 5
 			THEN sum_mensualite END AS sum_mensualite_5,
-		CASE WHEN type_credit = 0 
+		CASE WHEN type_credit = 0
 			THEN moy_nb_mensualite END AS moy_nb_mensualite_0,
 		CASE WHEN type_credit = 1
 			THEN moy_nb_mensualite END AS moy_nb_mensualite_1,
-		CASE WHEN type_credit = 2 
+		CASE WHEN type_credit = 2
 			THEN moy_nb_mensualite END AS moy_nb_mensualite_2,
-		CASE WHEN type_credit = 3 
+		CASE WHEN type_credit = 3
 			THEN moy_nb_mensualite END AS moy_nb_mensualite_3,
 		CASE WHEN type_credit = 4
 			THEN moy_nb_mensualite END AS moy_nb_mensualite_4,
 		CASE WHEN type_credit = 5
 			THEN moy_nb_mensualite END AS moy_nb_mensualite_5,
-		CASE WHEN type_credit = 0 
+		CASE WHEN type_credit = 0
 			THEN sum_solde END AS sum_solde_0,
 		CASE WHEN type_credit = 1
 			THEN sum_solde END AS sum_solde_1,
-		CASE WHEN type_credit = 2 
+		CASE WHEN type_credit = 2
 			THEN sum_solde END AS sum_solde_2,
-		CASE WHEN type_credit = 3 
+		CASE WHEN type_credit = 3
 			THEN sum_solde END AS sum_solde_3,
 		CASE WHEN type_credit = 4
 			THEN sum_solde END AS sum_solde_4,
@@ -74,7 +74,7 @@ CREATE TABLE credits_grouped
 			SUM(sum_solde_5) AS sum_solde_5
 	FROM credits_extended
 	GROUP BY id_dossier;
-									
+
 
 -- # Vérification de la diminution de lignes
 -- SELECT COUNT(*) FROM credits_grouped;
@@ -83,7 +83,7 @@ CREATE TABLE credits_grouped
 
 ## Remove duplicates from action
 CREATE TABLE action_unique
-	SELECT id_dossier, objectfull 
+	SELECT id_dossier, objectfull
 	FROM action
 	WHERE id_action IN
 		(SELECT min(a2.id_action)
@@ -97,13 +97,19 @@ CREATE TABLE action_unique
 ## Ne garder que le dernier budget en date pour chaque id_dossier
 CREATE TABLE budget_dat_max
 	SELECT *
-	FROM budget b
-	WHERE b.dat_budget = (
+    FROM (
+		SELECT *
+		FROM budget
+		WHERE typ NOT LIKE 'Impaye') as b
+    WHERE b.dat_budget = (
 		SELECT MAX(dat_budget)
-		FROM budget b2
+		FROM (
+			SELECT *
+            FROM budget
+            WHERE typ NOT LIKE 'Impaye') as b2
 		WHERE b.id_dossier = b2.id_dossier);
-	
-# Sélectioner à date égale l'id le plus élevé
+
+## Sélectioner à date égale l id le plus élevé
 CREATE TABLE budget_unique
 	SELECT *
 	FROM budget_dat_max
@@ -118,9 +124,9 @@ CREATE TABLE budget_unique
 -- SELECT COUNT(DISTINCT id_dossier) FROM budget;
 
 
-# JOIN dossier, credits_grouped, action, budget_uniquified	
+# JOIN dossier, credits_grouped, action, budget_uniquified
 CREATE TABLE extract
-	SELECT 
+	SELECT
 		  `id`,
           `etat`,
           `id_group`,
@@ -225,18 +231,16 @@ CREATE TABLE extract
           `alim_hyg_hab`,
           `dat_budget`,
           #`id_action`,
-          `objectfull`        
+          `objectfull`
 	FROM dossier
 	LEFT JOIN credits_grouped ON
-		dossier.`id`=credits_grouped.`id_dossier` 
+		dossier.`id`=credits_grouped.`id_dossier`
 	LEFT JOIN budget_unique ON
-		dossier.`id`=budget_unique.`id_dossier` 
+		dossier.`id`=budget_unique.`id_dossier`
 	LEFT JOIN action_unique ON
-		dossier.`id`=action_unique.`id_dossier` 
-;	
+		dossier.`id`=action_unique.`id_dossier`
+;
 
 -- # Vérification du nombre final de lignes
 -- SELECT COUNT(*) FROM extract;
--- SELECT COUNT(DISTINCT id) FROM dossier;	
-
-
+-- SELECT COUNT(DISTINCT id) FROM dossier;
