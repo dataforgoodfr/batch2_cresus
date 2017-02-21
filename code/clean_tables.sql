@@ -1,5 +1,24 @@
+USE cresus;
+
+# Les données de dates de naissances ont été envoyées séparément, il faut les réintégrer
+DROP TABLE IF EXISTS naissance;
+CREATE TABLE naissance (
+  id          INT UNSIGNED NOT NULL,
+  annee_naissance     INT UNSIGNED)
+ENGINE = MyISAM;
+LOAD DATA INFILE 'C:/ProgramData/MySQL/MySQL Server 5.7/Uploads/annee_naissance.txt' INTO TABLE naissance;
+
+# Mise à jour de dossier avec l'age
+DROP TABLE IF EXISTS dossier_maj;
+CREATE TABLE dossier_maj
+	SELECT dossier.*, naissance.annee_naissance, YEAR(dossier.date_ouverture)-naissance.annee_naissance AS age
+    FROM dossier, naissance
+    WHERE dossier.id = naissance.id;
+
+
 
 ## Group credits by [id_dossier, type_credit]
+DROP TABLE IF EXISTS credits_bytype;
 CREATE TABLE credits_bytype
 	SELECT id_dossier,
 			type_credit,
@@ -11,6 +30,7 @@ CREATE TABLE credits_bytype
 
 
 # Etale en colonnes les différentes catégories
+DROP TABLE IF EXISTS credits_extended;
 CREATE TABLE credits_extended
 	SELECT credits_bytype.*,
 		CASE WHEN type_credit = 0
@@ -52,8 +72,10 @@ CREATE TABLE credits_extended
 	FROM credits_bytype;
 
 # Aggrège par id_dossier
+DROP TABLE IF EXISTS credits_grouped;
 CREATE TABLE credits_grouped
 	SELECT id_dossier,
+			COUNT(id_dossier) AS nombre_credits,
 			SUM(sum_mensualite_0) AS sum_mensualite_0,
 			SUM(sum_mensualite_1) AS sum_mensualite_1,
 			SUM(sum_mensualite_2) AS sum_mensualite_2,
@@ -82,6 +104,7 @@ CREATE TABLE credits_grouped
 
 
 ## Remove duplicates from action
+DROP TABLE IF EXISTS action_unique;
 CREATE TABLE action_unique
 	SELECT id_dossier, objectfull
 	FROM action
@@ -95,6 +118,7 @@ CREATE TABLE action_unique
 -- SELECT COUNT(DISTINCT id_dossier) FROM action;
 
 ## Ne garder que le dernier budget en date pour chaque id_dossier
+DROP TABLE IF EXISTS budget_dat_max;
 CREATE TABLE budget_dat_max
 	SELECT *
     FROM (
@@ -110,6 +134,7 @@ CREATE TABLE budget_dat_max
 		WHERE b.id_dossier = b2.id_dossier);
 
 ## Sélectioner à date égale l id le plus élevé
+DROP TABLE IF EXISTS budget_unique;
 CREATE TABLE budget_unique
 	SELECT *
 	FROM budget_dat_max
@@ -125,11 +150,13 @@ CREATE TABLE budget_unique
 
 
 # JOIN dossier, credits_grouped, action, budget_uniquified
+DROP TABLE IF EXISTS extract;
 CREATE TABLE extract
 	SELECT
 		  `id`,
           `etat`,
           `id_group`,
+          `plateforme`,
           `id_user`,
           `charte`,
           `duree`,
@@ -157,6 +184,7 @@ CREATE TABLE extract
           `gain_mediation`,
           `PCB` ,
           `mensu_bdf`,
+          `age`,
           #`id_credit`,
           #`type_credit`,
           #`val_credit`,
@@ -164,6 +192,7 @@ CREATE TABLE extract
           #`nb_mensualite`,
           #`solde`,
           #`id_budget`,
+          `nombre_credits`,
             `sum_mensualite_0`,
 	    	`sum_mensualite_1`,
 	    	`sum_mensualite_2`,
@@ -232,13 +261,18 @@ CREATE TABLE extract
           `dat_budget`,
           #`id_action`,
           `objectfull`
-	FROM dossier
+	FROM dossier_maj
+    INNER JOIN (SELECT `id_partenaire`, `plateforme`
+				FROM partenaire
+                WHERE `plateforme` IN ('bancaire', 'social', 'CRESUS')
+                ) AS p ON
+                dossier_maj.`id_group`=p.`id_partenaire`
 	LEFT JOIN credits_grouped ON
-		dossier.`id`=credits_grouped.`id_dossier`
+		dossier_maj.`id`=credits_grouped.`id_dossier`
 	LEFT JOIN budget_unique ON
-		dossier.`id`=budget_unique.`id_dossier`
+		dossier_maj.`id`=budget_unique.`id_dossier`
 	LEFT JOIN action_unique ON
-		dossier.`id`=action_unique.`id_dossier`
+		dossier_maj.`id`=action_unique.`id_dossier`
 ;
 
 -- # Vérification du nombre final de lignes
