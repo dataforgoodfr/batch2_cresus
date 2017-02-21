@@ -106,9 +106,9 @@ def create_features(data, to_keep, credit_detail):
          'Microcredit': 5}
     data.orientation_old = data.orientation_old.apply(lambda x: d.get(x, 0))
 
-    data.ix[(data.orientation_old > 1)
-            & (data.orientation <= 1), 'orientation'] = data.ix[(data.orientation_old > 1)
-                                                                & (data.orientation <= 1), 'orientation_old']
+    data.ix[(data.orientation_old > 1) & (data.orientation <= 1),
+            'orientation'] = data.ix[(data.orientation_old > 1)
+                                     & (data.orientation <= 1), 'orientation_old']
     print("\ncreate_features ---------------------------------------\n")
     return [data, to_keep]
 

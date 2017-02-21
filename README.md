@@ -23,3 +23,10 @@ Les données étant personnelles et confidentielles, veuillez entre en contact a
 
 1. Exécuter dans MySQL le script de nettoyage des tables
 2. Placer le terminal sur le dossier git et exécuter la ligne de code contenue dans `generate_extract.txt` en remplaçant `localhost` par le host si besoin, et `<user>` par l'utilisateur de la base - le mot de passe demandé est celui de la base
+
+### Virtualenv
+1. S'assurer d'avoir installé `python3` et `virtualenv` (`pip3 install virtualenv`)
+2. Créer le virtualenv : `virtualenv -p python3 venv`
+3. L'activer : `venv/bin/activate`
+4. Installer les packages Python requis : `pip install -r requirements.txt`
+

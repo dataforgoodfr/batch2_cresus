@@ -9,11 +9,16 @@ from sklearn.model_selection import StratifiedKFold
 
 import xgboost as xgb
 
-data = 0
-data = 0
+from pca import reduce_dim_pca
+
+# ---- Parameters ----
+reduce_dim = False
+# Classification
+RFC = True
+XGB = ~RFC
+
 
 data = pd.read_csv("../data/preprocessed_data.csv")
-
 # Useful variables
 lab = {2.: 'Accompagnement',
        3.: 'Mediation',
@@ -23,12 +28,11 @@ lab = {2.: 'Accompagnement',
 # Split to training and test set
 mask = ~data.columns.isin(['orientation', 'id'])
 X = data.loc[:, mask]
+if reduce_dim:
+    X = reduce_dim_pca(X, 67)
 y = data.orientation
 Xtrain, Xtest, ytrain, ytest = train_test_split(X, y, random_state=10)
 
-# --- Classification ----
-RFC = True
-XGB = ~RFC
 
 # ---- Random Forest ----
 # -----------------------
@@ -57,17 +61,17 @@ for train_index, test_index in skf.split(X, y):
     if RFC:
         rfc.fit(Xtrain, ytrain)
         ypred = rfc.predict(Xtest)
-        for i, j in zip(Xtrain.columns, rfc.feature_importances_*100):
+        for i, j in zip(Xtrain.columns, rfc.feature_importances_ * 100):
             feat_imp[i] = feat_imp.get(i, 0) + j
 
     if XGB:
-        label_train = ytrain.map(lambda x: int(x-2))
-        label_test = ytest.map(lambda x: int(x-2))
+        label_train = ytrain.map(lambda x: int(x - 2))
+        label_test = ytest.map(lambda x: int(x - 2))
         dtrain = xgb.DMatrix(Xtrain, label=label_train)
         dtest = xgb.DMatrix(Xtest, label=label_test)
         bst = xgb.train(param, dtrain, num_round)
         label_pred = bst.predict(dtest)
-        ypred = label_pred+2
+        ypred = label_pred + 2
 
     accuracies[index] = np.mean(ypred == ytest)
 
@@ -89,7 +93,7 @@ print("\nCross validated accuracy: %0.2f (+/- %0.2f)\n" %
 if RFC:
     print('Showing 10 biggest feature importances:')
     for (i, j) in feat_imp:
-        print('{:>25} | {:3.2f}'.format(i, j/n_splits))
+        print('{:>25} | {:3.2f}'.format(i, j / n_splits))
 
 print('\nCross validated Confusion matrix :')
 print(conf_mat)
@@ -98,8 +102,8 @@ print(conf_mat)
 # ----------------------
 if (XGB & False):
     # Encoding to 1 - n_classes
-    label_train = ytrain.map(lambda x: int(x-2))
-    label_test = ytest.map(lambda x: int(x-2))
+    label_train = ytrain.map(lambda x: int(x - 2))
+    label_test = ytest.map(lambda x: int(x - 2))
     dtrain = xgb.DMatrix(Xtrain, label=label_train)
     dtest = xgb.DMatrix(Xtest, label=label_test)
 
@@ -110,12 +114,12 @@ if (XGB & False):
     bst = xgb.train(param, dtrain, num_round)
     # make prediction
     label_pred = bst.predict(dtest)
-    ypred = label_pred+2
+    ypred = label_pred + 2
     print('XGboost Accuracy is {}\n'.format(np.mean(ypred == ytest)))
 
     # Get cross validated accuracy
     scores = xgb.cv(param, dtrain, num_round,
                     nfold=5, metrics={'merror'}, seed=0)
     print("XGboost Cross validated accuracy: %0.2f (+/- %0.2f)" %
-          (1-scores['test-merror-mean'][num_round-1],
-           scores['test-merror-std'][num_round-1]))
+          (1 - scores['test-merror-mean'][num_round - 1],
+           scores['test-merror-std'][num_round - 1]))
