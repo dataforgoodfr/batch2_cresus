@@ -10,6 +10,10 @@ from sklearn.preprocessing import LabelEncoder
 
 from import_data import import_data
 
+# ------- Parameters ------------
+
+ac = True  # Ne prédire que sur les classes A et C (B devient A)
+
 
 # ------- Local functions -------
 # -------------------------------
@@ -228,13 +232,58 @@ def fill_na(data):
     return data
 
 
+def unite_consommation(data):
+    """Ajoute la colonne unite de consommation ('u_c') à partir des
+    données de situation et personnes à charge.
+    L'échelle actuellement la plus utilisée (dite de l'OCDE)
+    retient la pondération suivante :
+    - 1 UC pour le premier adulte du ménage ;
+    - 0,5 UC pour les autres personnes de 14 ans ou plus ;
+    - 0,3 UC pour les enfants de moins de 14 ans.
+    """
+
+    data['u_c'] = 1
+
+    # On identifie les bénéficiaires en couple
+    situation_couple = ['concubinage', 'marie', 'pacs']
+    couple = []
+    for e in situation_couple:
+        couple.append(mapping['situation'][e])
+
+    # On ajuste l'unité de consommation en fonction
+    data['u_c'] = data['u_c'].where(~data['situation'].isin(couple), 1.5)
+
+    # On ajoute la pondération des personnes à charge
+    data['u_c'] = data['u_c'] + data['personne_charges'] * 0.3
+    return(data)
+
+
+def rav(data):
+    """Ajoute la colonne reste-à-vivre ('rav') calculée comme la différence des revenus totaux
+    moins les charges totales, divisée par l'unitité de consommation
+    Requiert donc d'avoir calculé l'unité de consommation.
+    """
+    data['rav'] = (data['revenus_tot'] - data['charges'] -
+                   data['sum_mensualite']) / data['u_c']
+    return data
+
+
+def imc(data):
+    """"Calcul de l'indice de masse critique"""
+    data['imc'] = 0
+    for index, row in data.iterrows():
+        if row.sum_solde >0:
+            data.ix[3, 'imc'] = row.revenus_tot/row.sum_solde
+    return data
+
+
 def max_filter(data):
     """Filtre Max"""
     data = data[(data.charges > 400) & (data.revenus_tot > 400)]
-    # data['orientation'] = data.where(
-    #     ~(data.orientation == 3), 2)['orientation']
     print('Nombre de lignes retenures %i' % data.shape[0])
     return data
+
+
 
 
 # ------ Main ------
@@ -247,6 +296,9 @@ data = data.loc[:, to_keep]
 [data, mapping] = encode_categ(data)
 data = detect_na(data, mapping)
 data = fill_na(data)
+data = unite_consommation(data)
+data = rav(data)
+data = imc(data)
 data = max_filter(data)
 
 print("\n\nNombre final d'observations: {}".format(len(data)))

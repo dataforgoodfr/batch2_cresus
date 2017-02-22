@@ -11,12 +11,17 @@ import xgboost as xgb
 
 from pca import reduce_dim_pca
 
-# ---- Parameters ----
+
+# ------ Parameters ------
+
 reduce_dim = False
 # Classification
 RFC = True
 XGB = ~RFC
+ac = True  # Prédire uniquement sur A & C (B devient A)
 
+
+# ---- Data preparation ----
 
 data = pd.read_csv("../data/preprocessed_data.csv")
 # Useful variables
@@ -24,6 +29,10 @@ lab = {2.: 'Accompagnement',
        3.: 'Mediation',
        4.: 'Surendettement'}
 
+# Si on souhaite prédire sur A & C uniquement
+if ac:
+    data['orientation'] = data.where(
+            ~(data.orientation == 3), 2)['orientation']
 
 # Split to training and test set
 mask = ~data.columns.isin(['orientation', 'id'])
@@ -33,10 +42,8 @@ if reduce_dim:
 y = data.orientation
 Xtrain, Xtest, ytrain, ytest = train_test_split(X, y, random_state=10)
 
-
-# ---- Random Forest ----
-# -----------------------
-
+#     ------ Classification ------
+#     ----------------------------
 
 # Random Forest model
 rfc = RandomForestClassifier(n_estimators=200)
@@ -97,29 +104,3 @@ if RFC:
 
 print('\nCross validated Confusion matrix :')
 print(conf_mat)
-
-# ------ XGBOOST ------
-# ----------------------
-if (XGB & False):
-    # Encoding to 1 - n_classes
-    label_train = ytrain.map(lambda x: int(x - 2))
-    label_test = ytest.map(lambda x: int(x - 2))
-    dtrain = xgb.DMatrix(Xtrain, label=label_train)
-    dtest = xgb.DMatrix(Xtest, label=label_test)
-
-    # specify parameters via map
-    param = {'max_depth': 6, 'eta': 0.1, 'silent': 1,
-             'objective': 'multi:softmax', 'num_class': 3}
-    num_round = 20
-    bst = xgb.train(param, dtrain, num_round)
-    # make prediction
-    label_pred = bst.predict(dtest)
-    ypred = label_pred + 2
-    print('XGboost Accuracy is {}\n'.format(np.mean(ypred == ytest)))
-
-    # Get cross validated accuracy
-    scores = xgb.cv(param, dtrain, num_round,
-                    nfold=5, metrics={'merror'}, seed=0)
-    print("XGboost Cross validated accuracy: %0.2f (+/- %0.2f)" %
-          (1 - scores['test-merror-mean'][num_round - 1],
-           scores['test-merror-std'][num_round - 1]))
