@@ -41,7 +41,7 @@ def create_masks(data):
               ]
     autres_infos = ['id', 'age', 'profession', 'logement', 'situation',
                     'retard_facture', 'retard_pret', 'orientation',
-                    'personne_charges'
+                    'personne_charges', 'id_user'
                     # , 'releve_bancaire' ,'transferable', 'nature',
                     ]
     new_cols = ['sum_mensualite',
@@ -113,6 +113,8 @@ def create_features(data, to_keep, credit_detail):
     data.ix[(data.orientation_old > 1) & (data.orientation <= 1),
             'orientation'] = data.ix[(data.orientation_old > 1)
                                      & (data.orientation <= 1), 'orientation_old']
+
+    data.id_user[data.id_user.isnull()] = 0
     print("\ncreate_features ---------------------------------------\n")
     return [data, to_keep]
 
@@ -144,6 +146,9 @@ def filter_data(data):
     data = data.loc[data.charges > 0, :]
     # Elimine ceux pour lesquels on a pas de budget
     data = data[data.revenus_tot.notnull()]
+
+    if True:
+      data = data[((data.sum_mensualite > 0) & (data.sum_mensualite <= 80000))]
 
     print("Nombre de dossiers par plateforme d'origine après filtrage :")
     for e in ["CRESUS", "social", "bancaire"]:
@@ -190,7 +195,6 @@ def detect_na(data, mapping):
         (data.personne_charges < 0) | (data.personne_charges > 10)].shape[0]
     print("Personnes à charge : %i valeurs aberrantes soit %.2f%% du jeu. \n" %
           (pac_check, 100 * pac_check / n_tot))
-
     data['sum_mensualite'] = data['sum_mensualite'].where(
         ((data.sum_mensualite > 0) & (data.sum_mensualite <= 80000)), None)
     data['age'] = data['age'].where(
@@ -199,7 +203,8 @@ def detect_na(data, mapping):
         ((data.personne_charges >= 0) & (data.personne_charges <= 10)), None)
 
     locataire = mapping['logement']['locataire']
-    for col in ['loyer', 'gdf', 'electicite', 'eau', 'assurance_habitat']:
+    for col in ['loyer', # 'gdf', 'electicite', 'eau', 
+                'assurance_habitat']:
         regle = (data.logement == locataire) & (data[col] == 0)
         print("%s : %i valeurs sont effacées et recomplétées" %
               (col, data[regle][col].shape[0]))
@@ -213,14 +218,13 @@ def fill_na(data):
     '''
 
     print("\nfill_data ---------------------------------------------\n")
-    n_neighbors = 5
     sparse_cols = ['sum_mensualite', 'age', 'personne_charges',
                    'loyer', 'gdf', 'electicite', 'eau', 'assurance_habitat']
     for col in sparse_cols:
         if data[col].isnull().sum() > 0:
             print("%s : %.2f%% de valeurs manquantes" %
                   (col, 100 * data[col].isnull().sum() / data.shape[0]))
-            knn = neighbors.KNeighborsRegressor(n_neighbors)
+            knn = neighbors.KNeighborsRegressor(n_neighbors=3, weights='distance')
             data_temp = data.loc[~data[col].isnull(), :]
             mask = ~data.columns.isin(sparse_cols + ['id'])
             X = data_temp.loc[:, mask]
@@ -260,7 +264,7 @@ def unite_consommation(data):
 
 def rav(data):
     """Ajoute la colonne reste-à-vivre ('rav') calculée comme la différence des revenus totaux
-    moins les charges totales, divisée par l'unitité de consommation
+    moins les charges totales, divisée par l'unité de consommation
     Requiert donc d'avoir calculé l'unité de consommation.
     """
     data['rav'] = (data['revenus_tot'] - data['charges'] -
@@ -270,15 +274,16 @@ def rav(data):
 
 def imc(data):
     """"Calcul de l'indice de masse critique"""
-    data['imc'] = 0
-    for index, row in data.iterrows():
-        if row.sum_solde >0:
-            data.ix[3, 'imc'] = row.revenus_tot/row.sum_solde
+    data['imc'] = data['revenus_tot'] / data['sum_solde']
+    data.ix[data['imc'] == np.inf, ''] = 0
     return data
 
 
 def max_filter(data):
     """Filtre Max"""
+    print('\n max_filter----------------------------------------------')
+    print('Nombre charges < 400 : {}'.format(sum(data.charges < 400)))
+    print('Nombre revenus < 400 : {}'.format(sum(data.revenus_tot< 400)))
     data = data[(data.charges > 400) & (data.revenus_tot > 400)]
     print('Nombre de lignes retenures %i' % data.shape[0])
     return data
@@ -295,7 +300,7 @@ data = filter_data(data)
 data = data.loc[:, to_keep]
 [data, mapping] = encode_categ(data)
 data = detect_na(data, mapping)
-data = fill_na(data)
+#data = fill_na(data)
 data = unite_consommation(data)
 data = rav(data)
 data = imc(data)

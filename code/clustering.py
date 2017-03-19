@@ -10,8 +10,8 @@ from matplotlib import pyplot as plt
 import pylab
 pylab.ion()
 
-# ----------- Data import -----------
-# -----------------------------------
+#      ----------- Data import -----------
+#      -----------------------------------
 
 np.random.seed(1)
 
