@@ -18,7 +18,7 @@ np.random.seed(1)
 
 data = pd.read_csv("../data/preprocessed_data.csv")
 
-mask = ~data.columns.isin(['orientation', 'id'])
+mask = ~data.columns.isin(['id'])
 X = data.loc[:, mask]
 
 s = StandardScaler()
@@ -43,7 +43,7 @@ dendrogram(Z, orientation='left', color_threshold=0)
 plt.show()  # on choisit t=90
 
 # CAH
-T = fcluster(Z, t=75, criterion='distance')
+T = fcluster(Z, t=85, criterion='distance')
 repartition = pd.Series(T)
 
 # Aggréger les petites classes ensemble
@@ -71,9 +71,11 @@ centers = np.vstack(list(centroids.values()))
 # Encore un petit coup de kmeans pour lisser les résultats:
 kmeans_final = KMeans(n_clusters=repartition.nunique(),
                       random_state=0,
-                      init=centers).fit_predict(X_1k)
+                      init=centers).fit(X_1k)
 
-
+centers = kmeans_final.cluster_centers_
+centers = s.inverse_transform(centers)
+centers = pd.DataFrame(centers, columns=X.columns)
 # A faire : décrire les classes selon les variables
 # qui les caractérisent le mieux
 

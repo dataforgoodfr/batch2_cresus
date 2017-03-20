@@ -4,8 +4,11 @@ import pandas as pd
 import numpy as np
 
 from sklearn.ensemble import RandomForestClassifier
+from sklearn.svm import SVC
+from sklearn.neighbors import KNeighborsClassifier
 from sklearn.model_selection import train_test_split, StratifiedKFold
 from sklearn.metrics import roc_auc_score, roc_curve
+from sklearn.preprocessing import StandardScaler
 
 import xgboost as xgb
 
@@ -22,8 +25,22 @@ pylab.ion()
 
 reduce_dim = False
 # Classification
-RFC = False
-XGB = ~RFC
+
+RFC, XGB, SVM, KNN = False, False, False, False
+algo = input('Quel algo ? 1:RFC, 2:XGB, 3:SVM, 4:KNN\n')
+if algo == '1':
+    RFC = True
+    print('RFC\n')
+elif algo == '2':
+    XGB = True
+    print('XGB\n')  
+elif algo == '3':
+    SVM = True
+    print('SVM\n')
+elif algo == '4':
+    KNN = True
+    print('KNN\n')
+
 ac = True  # Prédire uniquement sur A & C (B devient A)
 
 
@@ -52,28 +69,59 @@ Xtrain, Xtest, ytrain, ytest = train_test_split(X, y, random_state=10)
 #     ------------ Classification -------------
 #     -----------------------------------------
 
+# --------- Iterator parameters -------------
 if RFC:
-    n_estimators = [10, 20, 100, 200, 500]
+    n_estimators = [50, 70, 100, 120, 150]
     max_depths = [3, 5, 7, 10, 15]
     iterator = [(i, j) for i in n_estimators for j in max_depths]
+    iterator = [(120, 10)]
 if XGB:
+    num_rounds = range(10,60, 2)
     # Première optimisation
     etas = [0.01, 0.03, 0.1, 0.2]
     max_depths = [3, 5, 7, 10]
     min_child_weights = [1, 2, 5]
-    subsamples = [0.8, 0.9]
-    # Rafinement 1
-    etas = [0.15, 0.2, 0.25]
+    # Raffinement
+    etas = [0.2]
     max_depths = [4, 5, 6]
-    min_child_weights = [2]
-    # Rafinement 2
+    min_child_weights = [2, 3, 4]
+    # Robustesse
+    # max_depths = [4]
     max_depths = [4]
+    min_child_weights = [4]
+    subsamples = [0.8, 0.9, 1.]
+    colsample_bytrees = [0.8, 0.9, 1.]
+    gammas = [0., 0.001, 0.005, 0.01]
 
-    iterator = [(i, j, k, l) for i in etas
-                             for j in max_depths
-                             for k in min_child_weights
-                             for l in subsamples]
+    iterator = [(num_round, eta, max_depth, min_child_weight,
+                subsample, colsample_bytree, gamma)
+                for num_round in num_rounds
+                for eta in etas
+                for max_depth in max_depths
+                for min_child_weight in min_child_weights
+                for subsample in subsamples
+                for colsample_bytree in colsample_bytrees
+                for gamma in gammas]
+    iterator = [(numround, 0.2, 4, 4, 0.9, 0.8, 0.3)
+                for numround in num_rounds]
+    iterator = [(58, 0.2, 4, 4, 0.9, 0.8, 0.3)]
+if SVM:
+    Cs = [.5, 1, 2]
+    gammas = [.005, .01, .02, .05]
+    iterator = [(c, gamma) for c in Cs for gamma in gammas]
+if KNN:
+    n_neighbors_ = [50, 75, 100, 125, 150, 200]
+    weights_ = ['uniform', 'distance']
+    p_ = [1, 2, 3]
+    leaf_size_ = [15, 30, 50]
+    iterator = [(n_neighbors, weights, p, leaf_size)
+                for n_neighbors in n_neighbors_
+                for weights in weights_
+                for p in p_
+                for leaf_size in leaf_size_]
+    iterator = [(125, 'distance', 1, 15)]
 best_auc, best_acc = 0, 0
+
 for params in iterator:
     # Random Forest model
     if RFC:
@@ -85,14 +133,24 @@ for params in iterator:
 
     # Xgboost
     if XGB:
-        (eta, max_depth, min_child_weight, subsample) = params
+        (num_round, eta, max_depth, min_child_weight, subsample, colsample_bytrees, gamma) = params
         param = {'max_depth': max_depth, 'eta': eta, 'silent': 1,
                  'objective': 'binary:logistic',  # 'num_class': 2,
                  'subsample': subsample, 'min_child_weight': min_child_weight,
+                 'colsample_bytrees': colsample_bytrees, 'gamma': gamma,
                  'n_estimators': 5000}
-        num_round = 20
         print('\nXGB - eta:{}, max_depth:{}, numround: {}'.format(eta, max_depth, num_round))
 
+    if SVM:
+        (c, gamma) = params
+        svc = SVC(C=c, gamma=gamma)
+        print('\nSVM - C:{}, gamma:{}'.format(c, gamma))
+
+    if KNN:
+        (n_neighbors, weights, p, leaf_size) = params
+        knn = KNeighborsClassifier(n_neighbors=n_neighbors, weights=weights,
+                                   p=p, leaf_size=leaf_size)
+        print('\nKNN - nn:{}, weights:{}, p: {}, leaf_size:{}'.format(n_neighbors, weights, p, leaf_size))
 
     # Stratified K folds
     n_splits = 5
@@ -107,21 +165,34 @@ for params in iterator:
         ytrain, ytest = y[train_index], y[test_index]
         if RFC:
             rfc.fit(Xtrain, ytrain)
-            ypred = rfc.predict(Xtest)
-            ytrainpred = rfc.predict(Xtrain)
+            yprob = rfc.predict_proba(Xtest)[:, 1]
+            ytrainprob = rfc.predict_proba(Xtrain)[:, 1]
             for i, j in zip(Xtrain.columns, rfc.feature_importances_ * 100):
                 feat_imp[i] = feat_imp.get(i, 0) + j
-            ypred_tot[test_index] = ypred
 
         if XGB:
             dtrain = xgb.DMatrix(Xtrain, label=ytrain)
             dtest = xgb.DMatrix(Xtest, label=ytest)
             bst = xgb.train(param, dtrain, num_round)
-            label_pred = bst.predict(dtest)
-            label_trainpred = bst.predict(dtrain)
-            ypred = label_pred.round().astype(int)
-            ytrainpred = label_trainpred.round().astype(int)
-            ypred_tot[test_index] = label_pred
+            yprob = bst.predict(dtest)
+            ytrainprob = bst.predict(dtrain)
+
+        if SVM:
+            svc.fit(Xtrain, ytrain)
+            yprob = svc.decision_function(Xtest)
+            ytrainprob = svc.decision_function(Xtrain)
+
+        if KNN:
+            s = StandardScaler()
+            Xtrains = s.fit_transform(Xtrain)
+            Xtests = s.transform(Xtest)
+            knn.fit(Xtrains, ytrain)
+            yprob = knn.predict_proba(Xtests)[:, 1]
+            ytrainprob = knn.predict_proba(Xtrains)[:, 1]
+
+        ypred = yprob.round().astype(int)
+        ytrainpred = ytrainprob.round().astype(int)
+        ypred_tot[test_index] = yprob
 
         # --- Accuracy du split---
         accuracies[index] = np.mean(ypred == ytest)
@@ -134,7 +205,7 @@ for params in iterator:
     accuracy = np.mean(ypred_tot.round() == y)
 
     # ------- Update des meilleurs paramètres -----
-    select_on_acc = False
+    select_on_acc = True
     if accuracy > best_acc:
         best_acc = accuracy
         if select_on_acc:
@@ -162,10 +233,12 @@ print(conf_mat)
 
 # ------ ROC Curve -----------
 fpr, tpr, thresholds = roc_curve(y, ypred_tot)
-plt.plot(fpr, tpr, '-', color = 'orange', label = 'AUC = %.3f' %best_auc)
+color = 'blue' if RFC else 'green' if KNN else 'yellow'
+label = 'RFC' if RFC else 'KNN' if KNN else 'XGB'
+plt.plot(fpr, tpr, '-', color=color, label='AUC %s = %.3f' % (label, best_auc))d
 plt.xlabel('False Positive Rate', fontsize=16)
 plt.ylabel('True Positive Rate', fontsize=16)
-plt.title('ROC curve: Logistic regression', fontsize=16)
+plt.title('ROC curve', fontsize=16)
 plt.legend(loc="lower right")
 
 if RFC:

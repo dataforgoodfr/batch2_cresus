@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 
+from __future__ import division
 import pandas as pd
 import numpy as np
 import pickle
@@ -193,7 +194,7 @@ def detect_na(data, mapping):
 
     pac_check = data.personne_charges[
         (data.personne_charges < 0) | (data.personne_charges > 10)].shape[0]
-    print("Personnes à charge : %i valeurs aberrantes soit %.2f%% du jeu. \n" %
+    print("Personnes à charge : %i valeurs aberrantes soit %.2f%% du jeu." %
           (pac_check, 100 * pac_check / n_tot))
     data['sum_mensualite'] = data['sum_mensualite'].where(
         ((data.sum_mensualite > 0) & (data.sum_mensualite <= 80000)), None)
@@ -201,6 +202,16 @@ def detect_na(data, mapping):
         ((data.age >= 18) & (data.age <= 90)), None)
     data['personne_charges'] = data['personne_charges'].where(
         ((data.personne_charges >= 0) & (data.personne_charges <= 10)), None)
+
+    charges_check = sum(data.charges < 400)
+    revenus_check = sum(data.revenus_tot < 400)
+    to_print = '{}: {} valeurs <400 soit {}'
+    print(to_print.format('Charges', charges_check,
+                          100 * charges_check / n_tot))
+    print(to_print.format('Revenus', revenus_check,
+                          100 * revenus_check / n_tot))
+    # data.charges = data.charges.where((data.charges > 400), None)
+    # data.revenus_tot = data.revenus_tot.where((data.revenus_tot > 400), None)
 
     locataire = mapping['logement']['locataire']
     for col in ['loyer', # 'gdf', 'electicite', 'eau', 
@@ -219,7 +230,9 @@ def fill_na(data):
 
     print("\nfill_data ---------------------------------------------\n")
     sparse_cols = ['sum_mensualite', 'age', 'personne_charges',
-                   'loyer', 'gdf', 'electicite', 'eau', 'assurance_habitat']
+                   'loyer', 'gdf', 'electicite', 'eau', 'assurance_habitat',
+                   'charges', 'revenus_tot'
+                   ]
     for col in sparse_cols:
         if data[col].isnull().sum() > 0:
             print("%s : %.2f%% de valeurs manquantes" %
@@ -275,15 +288,13 @@ def rav(data):
 def imc(data):
     """"Calcul de l'indice de masse critique"""
     data['imc'] = data['revenus_tot'] / data['sum_solde']
-    data.ix[data['imc'] == np.inf, ''] = 0
+    data.ix[data['imc'] == np.inf, 'imc'] = 0
     return data
 
 
 def max_filter(data):
     """Filtre Max"""
     print('\n max_filter----------------------------------------------')
-    print('Nombre charges < 400 : {}'.format(sum(data.charges < 400)))
-    print('Nombre revenus < 400 : {}'.format(sum(data.revenus_tot< 400)))
     data = data[(data.charges > 400) & (data.revenus_tot > 400)]
     print('Nombre de lignes retenures %i' % data.shape[0])
     return data
@@ -300,7 +311,7 @@ data = filter_data(data)
 data = data.loc[:, to_keep]
 [data, mapping] = encode_categ(data)
 data = detect_na(data, mapping)
-#data = fill_na(data)
+data = fill_na(data)
 data = unite_consommation(data)
 data = rav(data)
 data = imc(data)

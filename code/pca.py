@@ -43,7 +43,10 @@ def plot_pca(data, x_comp, y_comp):
         plt.plot(
             to_plot[0], to_plot[1], 'ro', c=col[orient], label=lab[orient])
     plt.legend(loc='upper left')
-
+    plt.xlabel('Dim 1', fontsize=16)
+    plt.ylabel('Dim 2', fontsize=16)
+    plt.title('Projection sur les deux premières composantes principales', 
+              fontsize=16)
 
 def reduce_dim_pca(data, var_exp):
     '''
@@ -62,4 +65,5 @@ def reduce_dim_pca(data, var_exp):
     return pd.DataFrame(new_data)
 
 
-plot_pca(data, 0, 1)
+plot_pca(data, 1, 2)
+
